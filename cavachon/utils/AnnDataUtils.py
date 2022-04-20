@@ -36,6 +36,7 @@ class AnnDataUtils:
         obs_ordered_index = obs_ordered_index.intersection(adata.obs.index)
 
     for modality in adata_dict.keys():
+      adata = adata_dict[modality]
       adata_dict[modality] = AnnDataUtils.reorder_adata(adata, obs_ordered_index)
 
     return adata_dict
