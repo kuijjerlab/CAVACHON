@@ -1,9 +1,9 @@
-import anndata
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 
 from cavachon.utils.DataFrameUtils import DataFrameUtils
+from scipy.sparse import csr_matrix
 from sklearn.preprocessing import LabelEncoder
 from typing import Dict, List, Tuple
 
@@ -19,7 +19,8 @@ class TensorUtils:
     """Create a Tensorflow Tensor from column data (specified with `colnames`) in the 
     provided DataFrame. If the column data is a categorical variable, transform it with 
     one-hot encoded Tensor. If it is a continous variable, simply transform it into a 
-    Tensorflow Tensor.
+    Tensorflow Tensor. If no valid column data is provided, return Tensor which is a
+    zero vector.
 
     Args:
       df (pd.DataFrame): input DataFrame.
@@ -49,10 +50,11 @@ class TensorUtils:
         tensor_list.append(encoded_tensor)
       else:
         # if the column is a continous variable, 
-        tensor_list.append(tf.reshape(tf.convert_to_tensor(coldata), (-1, 1)))
-
-      if len(tensor_list) == 0:
-        tensor_list.append(tf.zeros((n_obs, 1)))
+        tensor = tf.reshape(tf.convert_to_tensor(coldata, tf.float32), (-1, 1))
+        tensor_list.append(tensor)
+    
+    if len(tensor_list) == 0:
+      tensor_list.append(tf.zeros((n_obs, 1)))
 
     return tf.concat(tensor_list, axis=1), encoder_dict
 
@@ -76,15 +78,16 @@ class TensorUtils:
     return encoded_tensor, encoder
 
   @staticmethod
-  def create_sparse_tensor(matrix: np.matrix) -> tf.SparseTensor:
-    """Create a SparseTensor out of a numpy/scipy matrix.
+  def csr_to_sparse_tensor(csr_matrix: csr_matrix) -> tf.SparseTensor:
+    """Create a SparseTensor out of a scipy csr matrix.
 
     Args:
-      matrix (np.matrix): the provided matrix
+      matrix (csr_matrix): the provided matrix
 
     Returns:
       tf.SparseTensor: the created SparseTensor.
     """
-    coo_matrix = matrix.tocoo()
+    coo_matrix = csr_matrix.tocoo()
     indices = np.mat([coo_matrix.row, coo_matrix.col]).transpose()
-    return tf.SparseTensor(indices, coo_matrix.data, coo_matrix.shape)
+    sparse_tensor = tf.SparseTensor(indices, coo_matrix.data, coo_matrix.shape)
+    return tf.cast(sparse_tensor, tf.float32)

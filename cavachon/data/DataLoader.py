@@ -66,7 +66,7 @@ class DataLoader:
     field_dict = dict()
     for modality in self.mdata.mod.keys():
       adata = self.mdata[modality]
-      data_tensor = TensorUtils.create_sparse_tensor(adata.X)
+      data_tensor = TensorUtils.csr_to_sparse_tensor(adata.X)
       
       if (libsize_colnames_dict is None or 
           modality not in libsize_colnames_dict or
