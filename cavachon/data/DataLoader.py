@@ -19,17 +19,20 @@ class DataLoader:
   Data loader to create Tensorflow dataset from MuData.
 
   Attributes:
-    batch_effect_encoder (Dict[str, LabelEncoder]): the encoders used to create one-hot 
-    encoded batch effect tensor. The keys of the dictionary are formatted as 
-    "{modality}:{obs_column}". The LabelEncoder stored the mapping between categorical 
-    batch effect variables and the numerical representation.
+    batch_effect_encoder (Dict[str, LabelEncoder]): the encoders used to
+    create one-hot encoded batch effect tensor. The keys of the 
+    dictionary are formatted as "{modality}:{obs_column}". The 
+    LabelEncoder stored the mapping between categorical batch effect
+    variables and the numerical representation.
 
-    dataset (tf.data.Dataset): Tensorflow Dataset created from the MuData. Can be used 
-    to train/test/validate the CAVACHON model. The field of the dataset includes 
-    "{modality}:matrix" (tf.SparseTensor), "{modality}:libsize" (tf.Tensor) and 
-    "{modality:batch_effect}" (tf.Tensor)
+    dataset (tf.data.Dataset): Tensorflow Dataset created from the 
+    MuData. Can be used to train/test/validate the CAVACHON model. The 
+    field of the dataset includes "{modality}:matrix" (tf.SparseTensor),
+    "{modality}:libsize" (tf.Tensor) and "{modality:batch_effect}" 
+    (tf.Tensor)
 
-    mdata (mu.MuData): (Single-cell) multi-omics data stored in mu.MuData format.
+    mdata (mu.MuData): (Single-cell) multi-omics data stored in MuData 
+    format.
  
   """
   def __init__(self, mdata: mu.MuData) -> None:
@@ -43,25 +46,29 @@ class DataLoader:
       self,
       libsize_colnames_dict: Dict[str, str] = None,
       batch_effect_colnames_dict: Dict[str, List[str]] = None) -> tf.data.Dataset:
-    """Create a Tensorflow Dataset based on the MuData provided in the __init__ function.
+    """Create a Tensorflow Dataset based on the MuData provided in the 
+    __init__ function.
 
 
     Args:
-      libsize_colnames_dict (Dict[str, str], optional): dictionary of the column name of 
-      libsize in the obs DataFrame, where the keys are the modalities, and values are the
-      libsize column corresponds to the modality. Note that the libsize column needs to 
-      be a continous variable. Defaults to None.
+      libsize_colnames_dict (Dict[str, str], optional): dictionary of 
+      the column name of libsize in the obs DataFrame, where the keys 
+      are the modalities, and values are the libsize column corresponds 
+      to the modality. Note that the libsize column needs to be a 
+      continous variable. Defaults to None.
 
-      batch_effect_colnames_dict (Dict[str, List[str]], optional): dictionary of the 
-      column name of batch effect in the obs DataFrame, where the keys are the 
-      modalities, and values are the batch effect columns (in list) corresponds to the 
-      modality. The batch effect columns can be either categorical or continuous. 
+      batch_effect_colnames_dict (Dict[str, List[str]], optional): 
+      dictionary of the column name of batch effect in the obs 
+      DataFrame, where the keys are the modalities, and values are the 
+      batch effect columns (in list) corresponds to the modality. The 
+      batch effect columns can be either categorical or continuous. 
       Defaults to None.
 
     Returns:
-      tf.data.Dataset: created Dataset. The field of the dataset includes 
-      "{modality}:matrix" (tf.SparseTensor), "{modality}:libsize" (tf.Tensor) and 
-      "{modality:batch_effect}" (tf.Tensor)
+      tf.data.Dataset: created Dataset. The field of the dataset 
+      includes "{modality}:matrix" (tf.SparseTensor), 
+      "{modality}:libsize" (tf.Tensor) and "{modality:batch_effect}" 
+      (tf.Tensor)
     """
     field_dict = dict()
     for modality in self.mdata.mod.keys():
@@ -103,8 +110,8 @@ class DataLoader:
     """Create DataLoader from the dictionary of AnnData.
 
     Args:
-      adata_dict (Dict[str, anndata.AnnData]): dictionary of AnnData, where keys are 
-      the modality, values are the corresponding AnnData.
+      adata_dict (Dict[str, anndata.AnnData]): dictionary of AnnData, 
+      where keys are the modality, values are the corresponding AnnData.
 
     Returns:
       DataLoader: DataLoader created from the dictionary of AnnData.
@@ -116,9 +123,9 @@ class DataLoader:
   
   @classmethod
   def from_h5mu(cls, h5mu_path: str) -> DataLoader:
-    """Create DataLoader from h5mu file (of MuData). Note that the different modalities
-    in the MuData needs to be sorted in a way that the order of obs DataFrame needs to 
-    be the same.
+    """Create DataLoader from h5mu file (of MuData). Note that the 
+    different modalities in the MuData needs to be sorted in a way that
+    the order of obs DataFrame needs to be the same.
 
     Args:
       h5mu_path (str): path to the h5mu file.
@@ -150,7 +157,8 @@ class DataLoader:
     """Load Tensorflow Dataset snapshot.
 
     Args:
-      datadir (str): the data directory of created Tensorflow Dataset snapshot.
+      datadir (str): the data directory of created Tensorflow Dataset 
+      snapshot.
     """
     datadir = os.path.realpath(datadir)
     self.dataset = tf.data.experimental.load(datadir)
@@ -160,7 +168,8 @@ class DataLoader:
     """Save Tensorflow Dataset to local storage.
 
     Args:
-      datadir (str): directory where the Tensorflow Dataset snapshot will be save.
+      datadir (str): directory where the Tensorflow Dataset snapshot 
+      will be save.
     """
     datadir = os.path.realpath(datadir)
     os.makedirs(datadir, exist_ok=True)

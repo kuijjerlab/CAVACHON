@@ -12,32 +12,37 @@ from typing import Dict, List, Set
 
 class MultiOmicsData:
   """MultiOmicsData
-  Used to read the (single-cell) multi-omics data (obs, var and matrix files). This data
-  structure is used as a intermediate layer which read the data from the storage and can
-  create a dictionary of AnnData or MuData which can be used to create the Tensorflow 
-  dataset. Note that this data structure should only be used to create DataLoader.
+  Used to read the (single-cell) multi-omics data (obs, var and matrix 
+  files). This data structure is used as a intermediate layer which read
+  the data from the storage and can create a dictionary of AnnData or 
+  MuData which can be used to create the Tensorflow dataset. Note that 
+  this data structure should only be used to create DataLoader.
 
   Attributes:
-    modalities (Set[str]): the label for the modalities recorded in MultiOmicsData.
+    modalities (Set[str]): the label for the modalities recorded in 
+    MultiOmicsData.
 
     n_samples (int): number of samples in MultiOmicsData.
 
-    sample_index_dict (Dict[str, int]): dictionary of sample index, where the keys are 
-    the sample names, and values are the indices to access the data of the sample in 
-    `modality_obs_df_dict`, `modality_var_df_dict` and `modality_matrix_df_dict`.
+    sample_index_dict (Dict[str, int]): dictionary of sample index, 
+    where the keys are the sample names, and values are the indices to
+    access the data of the sample in `modality_obs_df_dict`,
+    `modality_var_df_dict` and `modality_matrix_df_dict`.
 
-    modality_obs_df_dict (Dict[str, List[pd.DataFrame]]): dictionary of list of obs 
-    DataFrame, where keys are the modality, values are list of obs DataFrame of the 
-    samples (the mapping between sample and indices is stored in `sample_index_dict`)
+    modality_obs_df_dict (Dict[str, List[pd.DataFrame]]): dictionary of
+    list of obs DataFrame, where keys are the modality, values are list
+    of obs DataFrame of the samples (the mapping between sample and
+    indices is stored in `sample_index_dict`)
 
-    modality_var_df_dict (Dict[str, List[pd.DataFrame]]): dictionary of list of var 
-    DataFrame, where keys are the modality, values are list of var DataFrame of the 
-    samples (the mapping between sample and indices is stored in `sample_index_dict`)
+    modality_var_df_dict (Dict[str, List[pd.DataFrame]]): dictionary of
+    list of var DataFrame, where keys are the modality, values are list
+    of var DataFrame of the samples (the mapping between sample and
+    indices is stored in `sample_index_dict`)
 
-    modality_obs_df_dict (Dict[str, List[csr_matrix]]): dictionary of list of data matrix 
-    , where keys are the modality, values are list of data matrix of the samples (the 
-    mapping between sample and indices is stored in `sample_index_dict`)
- 
+    modality_obs_df_dict (Dict[str, List[csr_matrix]]): dictionary of 
+    list of data matrix, where keys are the modality, values are list of
+    data matrix of the samples (the mapping between sample and indices 
+    is stored in `sample_index_dict`)
   """
   
   def __init__(self):
@@ -67,10 +72,10 @@ class MultiOmicsData:
     """Add one sample from the meta data specification of one sample.
 
     Args:
-        datadir (str): path to directory where the files (var, obs and matrix) are 
-        stored.
+      datadir (str): path to directory where the files (var, obs and
+      matrix) are stored.
 
-        sp_sample (str): the specification of one sample.
+      sp_sample (str): the specification of one sample.
     """
     sample = sp_sample['name']
     description = sp_sample['description']
@@ -106,7 +111,7 @@ class MultiOmicsData:
     """Remove a sample from the MultiOmicsData.
 
     Args:
-        sample (str): the sample name that needs to be removed.
+      sample (str): the sample name that needs to be removed.
     """
     sample_index = self.sample_index_dict.pop(sample, -1)
     if sample_index < 0:
@@ -126,12 +131,13 @@ class MultiOmicsData:
     return 
 
   def export_adata_dict(self) -> Dict[str, anndata.AnnData]:
-    """Export the MultiOmicsData as dictionary of AnnData. The obs DataFrame of the all
-    the AnnData are ordered in the same way.
+    """Export the MultiOmicsData as dictionary of AnnData. The obs
+    DataFrame of the all the AnnData are ordered in the same way.
 
     Returns:
-      Dict[str, anndata.AnnData]: exported dictionary of AnnData, where the keys are the
-      modality, and the values are the corresponding AnnData.
+      Dict[str, anndata.AnnData]: exported dictionary of AnnData, where
+      the keys are the modality, and the values are the corresponding
+      AnnData.
     """
     modality_adata_dict = {}
     for modality in self.modalities:
@@ -148,8 +154,8 @@ class MultiOmicsData:
     return modality_adata_dict
 
   def export_mudata(self) -> mu.MuData:
-    """Export the MultiOmicsData as MuData. The obs DataFrame of the all modalities are 
-    ordered in the same way.
+    """Export the MultiOmicsData as MuData. The obs DataFrame of the all
+    modalities are ordered in the same way.
 
     Returns:
         mu.MuData: exported MuData.
@@ -167,11 +173,12 @@ class MultiOmicsData:
       modality: str,
       colnames: List[str],
       index_col: int = 0) -> pd.DataFrame:
-    """Read the annotation files for (single-cell) multi-omics data (DataFrame of obs 
-    and var).
+    """Read the annotation files for (single-cell) multi-omics data 
+    (DataFrame of obs and var).
 
     Args:
-        datadir (str): the path to the directory where the files are stored.
+        datadir (str): the path to the directory where the files are 
+        stored.
 
         filename (str): the filename to be read.
         
@@ -179,7 +186,8 @@ class MultiOmicsData:
         
         colnames (List[str]): the column names of the DataFrame.
         
-        index_col (int, optional): the index column (for DataFrame.index). Defaults to 0.
+        index_col (int, optional): the index column (for 
+        DataFrame.index). Defaults to 0.
 
     Returns:
         pd.DataFrame: annotation DataFrame (obs or var)

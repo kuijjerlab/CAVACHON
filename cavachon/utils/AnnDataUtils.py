@@ -12,17 +12,18 @@ class AnnDataUtils:
   def reorder_adata_dict(
       adata_dict: Dict[str, anndata.AnnData],
       obs_ordered_index: Optional[pd.Index] = None) -> Dict[str, anndata.AnnData]:
-    """Reorder the dictionary of AnnData so the order of obs DataFrame in each modality
-    is the same.
+    """Reorder the dictionary of AnnData so the order of obs DataFrame 
+    in each modality is the same.
 
     Args:
-      adata_dict (Dict[str, anndata.AnnData]): dictionary of AnnData, where keys are 
-      the modality, values are the corresponding AnnData.
+      adata_dict (Dict[str, anndata.AnnData]): dictionary of AnnData, 
+      where keys are the modality, values are the corresponding AnnData.
       
-      obs_ordered_index (Optional[pd.Index], optional): the ordered index of obs 
-      DataFrame. If not provided, the order of the obs DataFrame of the first 
-      (alphabetical order) modality will be used. Here, only obs index that exists in 
-      all the modalities will be used. Defaults to None.
+      obs_ordered_index (Optional[pd.Index], optional): the ordered 
+      index of obs DataFrame. If not provided, the order of the obs 
+      DataFrame of the first (alphabetical order) modality will be used.
+      Here, only obs index that exists in all the modalities will be
+      used. Defaults to None.
 
     Returns:
       Dict[str, anndata.AnnData]: ordered dictionary of AnnData.
@@ -45,12 +46,14 @@ class AnnDataUtils:
   def reorder_adata(
       adata: anndata.AnnData,
       obs_ordered_index: pd.Index) -> anndata.AnnData:
-    """Reorder the AnnData so teh order of obs DataFrame in teh AnnData is the same as 
-    the provided one.
+    """Reorder the AnnData so teh order of obs DataFrame in teh AnnData
+    is the same as the provided one.
 
     Args:
         adata (anndata.AnnData): AnnData of a modality.
-        obs_ordered_index (pd.Index): the desired order of index for the obs DataFrame.
+        
+        obs_ordered_index (pd.Index): the desired order of index for the
+        obs DataFrame.
 
     Returns:
         anndata.AnnData: ordered AnnData.

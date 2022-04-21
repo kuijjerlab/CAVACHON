@@ -16,23 +16,25 @@ class TensorUtils:
   def create_tensor_from_df(
       df: pd.DataFrame,
       colnames: List[str] = []) -> Tuple[tf.Tensor, Dict[str, LabelEncoder]]:
-    """Create a Tensorflow Tensor from column data (specified with `colnames`) in the 
-    provided DataFrame. If the column data is a categorical variable, transform it with 
-    one-hot encoded Tensor. If it is a continous variable, simply transform it into a 
-    Tensorflow Tensor. If no valid column data is provided, return Tensor which is a
-    zero vector.
+    """Create a Tensorflow Tensor from column data (specified with 
+    `colnames`) in the provided DataFrame. If the column data is a 
+    categorical variable, transform it with one-hot encoded Tensor. If 
+    it is a continous variable, simply transform it into a Tensorflow 
+    Tensor. If no valid column data is provided, return Tensor which is 
+    a zero vector.
 
     Args:
       df (pd.DataFrame): input DataFrame.
 
-      colnames (List[str], optional): columns of the DataFrame that are used to create
-      the Tensor. Defaults to [].
+      colnames (List[str], optional): columns of the DataFrame that are
+      used to create the Tensor. Defaults to [].
 
     Returns:
-      Tuple[tf.Tensor, Dict[str, LabelEncoder]]: the first element is the one-hot 
-      encoded Tensor. The second element is the dictionary of LabelEncoder used to map 
-      the categorical variable into scalar representation, where the keys are the 
-      column names and the values are the correponding LabelEncoder. 
+      Tuple[tf.Tensor, Dict[str, LabelEncoder]]: the first element is 
+      the one-hot encoded Tensor. The second element is the dictionary
+      of LabelEncoder used to map the categorical variable into scalar 
+      representation, where the keys are the column names and the values
+      are the correponding LabelEncoder. 
     """
     # if no valid batch effect column is provided, use zero vector for batch effect
     encoder_dict = dict()
@@ -66,9 +68,9 @@ class TensorUtils:
       data (pd.Series): data variable.
 
     Returns:
-      Tuple[tf.Tensor, LabelEncoder]: the first element is the one-hot encoded Tensor,
-      the second element is the LabelEncoder used to map the categorical variable into
-      scalar representation.
+      Tuple[tf.Tensor, LabelEncoder]: the first element is the one-hot 
+      encoded Tensor, the second element is the LabelEncoder used to map
+      the categorical variable into scalar representation.
     """
     encoder = LabelEncoder()
     encoded_array = encoder.fit_transform(data)
