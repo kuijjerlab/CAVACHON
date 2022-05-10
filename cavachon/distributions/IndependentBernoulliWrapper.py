@@ -1,13 +1,15 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from cavachon.distributions.Distribution import Distribution
+from cavachon.distributions.DistributionWrapper import DistributionWrapper
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense
 
-class Bernoulli(Distribution):
+class IndependentBernoulliWrapper(DistributionWrapper):
   def __init__(self, logits):
     super().__init__()
+    # batch_shape: logits.shape
+    # event_shape: ()
     self._dist = tfp.distributions.Bernoulli(logits=logits)
     self._parameters = dict()
     self._parameters.setdefault('pi', tf.keras.activations.sigmoid(logits))

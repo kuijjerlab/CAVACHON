@@ -4,7 +4,7 @@ import tensorflow as tf
 from typing import Dict
 from abc import ABC, abstractmethod, abstractstaticmethod
 
-class Distribution(ABC):
+class DistributionWrapper(ABC):
 
   @property
   def dist(self):
