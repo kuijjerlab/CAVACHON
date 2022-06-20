@@ -1,1 +1,2 @@
-from .ModalityMeta import ModalityMeta
+from .Modality import Modality
+from .ModalityOrderedMap import ModalityOrderedMap
