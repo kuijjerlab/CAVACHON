@@ -3,13 +3,10 @@ from __future__ import annotations
 import anndata
 import muon as mu
 import os
-import numpy as np
-import pandas as pd
 import tensorflow as tf
-import yaml
 
-from cavachon.data.MultiOmicsData import MultiOmicsData
-from cavachon.utils.AnnDataUtils import AnnDataUtils
+from cavachon.modality.ModalityOrderedMap import ModalityOrderedMap
+from cavachon.parser.ConfigParser import ConfigParser
 from cavachon.utils.TensorUtils import TensorUtils
 from sklearn.preprocessing import LabelEncoder
 from typing import Dict, List
@@ -106,7 +103,7 @@ class DataLoader:
     return tf.data.Dataset.from_tensor_slices(field_dict)
 
   @classmethod
-  def from_dict(cls, adata_dict: Dict[str, anndata.AnnData]) -> DataLoader:
+  def from_modality_ordered_map(cls, modality_map: ModalityOrderedMap) -> DataLoader:
     """Create DataLoader from the dictionary of AnnData.
 
     Args:
@@ -116,8 +113,7 @@ class DataLoader:
     Returns:
       DataLoader: DataLoader created from the dictionary of AnnData.
     """
-    adata_dict = AnnDataUtils.reorder_adata_dict(adata_dict)
-    mdata = mu.MuData(adata_dict)
+    mdata = modality_map.export_mudata()
     mdata.update()
     return cls(mdata)
   
@@ -139,19 +135,19 @@ class DataLoader:
     return cls(mdata)
 
   @classmethod
-  def from_meta(cls, meta_path: str) -> DataLoader:
-    """Create DataLoader from meta data specification (meta.yaml).
+  def from_config_parser(cls, cp: ConfigParser) -> DataLoader:
+    """Create DataLoader from a given config yaml file (config.yaml).
 
     Args:
-      meta_path (str): path to meta.yaml.
+      filename (str): the filename of the config yaml.
 
     Returns:
-      DataLoader: DataLoader created from meta.yaml.
+      DataLoader: DataLoader created from the config file.
     """
-    data = MultiOmicsData()
-    data.add_from_meta(meta_path)
-    modality_adata_dict = data.export_adata_dict()
-    return cls.from_dict(modality_adata_dict)
+    modality_map = ModalityOrderedMap.from_config_parser(cp)
+    modality_map.preprocess()
+    
+    return cls.from_modality_ordered_map(modality_map)
   
   def load_dataset(self, datadir: str) -> None:
     """Load Tensorflow Dataset snapshot.

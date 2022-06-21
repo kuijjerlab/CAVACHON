@@ -62,7 +62,11 @@ class ModalityOrderedMap:
     Returns:
       mu.MuData: exported MuData.
     """
-    mdata = MuData(self.data)
+    self.reorder_obs_in_modality()
+    adata_dict = dict()
+    for modality_name, modality in self.data.items():
+      adata_dict[modality_name] = modality.adata
+    mdata = MuData(adata_dict)
     mdata.update()
 
     return mdata
