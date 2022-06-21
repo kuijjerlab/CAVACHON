@@ -3,19 +3,22 @@ from anndata import AnnData
 from cavachon.distributions.DistributionWrapper import DistributionWrapper
 from cavachon.environment.Constants import Constants
 from cavachon.io.FileReader import FileReader
+from cavachon.parser.ConfigParser import ConfigParser
+from cavachon.preprocess.Preprocess import Preprocess
 from cavachon.utils.ReflectionHandler import ReflectionHandler
-from typing import Any, Dict
+from typing import List
 
 import pandas as pd
 import warnings
 
 class Modality:
-  def __init__(self, name, data_type, dist_cls, order, adata):
-    self.data_type: str = data_type
+  def __init__(self, name, modality_type, dist_cls, order, adata, preprocess_steps):
+    self.modality_type: str = modality_type
     self.dist_cls: DistributionWrapper = dist_cls
     self.order: int = order
     self.name: str = name
     self.adata: AnnData = adata
+    self.preprocess_steps: List[Preprocess] = preprocess_steps
   
   def __lt__(self, other: Modality) -> bool:
     """Overwriten __lt__ function, so Modality can be sorted.
@@ -30,7 +33,7 @@ class Modality:
     return self.order < other.order
 
   def __str__(self) -> str:
-    return f"Modality {self.order:>02}: {self.name} ({self.data_type})"
+    return f"Modality {self.order:>02}: {self.name} ({self.modality_type})"
   
   def set_adata(self, adata: AnnData) -> None:
     if not isinstance(adata, AnnData):
@@ -72,18 +75,21 @@ class Modality:
     return
 
   @classmethod
-  def from_config(cls, modality, config: Dict[str, Any]) -> None:
-    
-    all_modality_config = config.get(Constants.CONFIG_NAME_MODALITY)
-    for modality_config in all_modality_config:
-      if modality_config['name'] == modality:
-        modality_name = modality_config['name']
-        data_type = modality_config['data_type']
-        order = modality_config['order']
-        dist_cls_name = modality_config['dist']
-        if not dist_cls_name.endswith('Wrapper'):
-          dist_cls_name += 'Wrapper'
-        dist_cls = ReflectionHandler.get_class_by_name(dist_cls_name)
-        adata = FileReader.read_multiomics_data(config, modality_name)
+  def from_config_parser(cls, modality_name, cp: ConfigParser) -> None:
+    config = cp.config_modality.get(modality_name)
+    modality_name = config.get('name')
+    modality_type = config.get(Constants.CONFIG_FIELD_MODALITY_TYPE)
+    order = config.get(Constants.CONFIG_FIELD_MODALITY_ORDER)
+    dist_cls_name = config.get(Constants.CONFIG_FIELD_MODALITY_DIST)
+    dist_cls = ReflectionHandler.get_class_by_name(dist_cls_name)
+    adata = FileReader.read_multiomics_data(config, modality_name)
+    preprocess_config = config.get('modality')
+    preprocess_steps = None
 
-        return cls(name=modality_name, data_type=data_type, dist_cls=dist_cls, order=order, adata=adata)
+    return cls(
+        name=modality_name,
+        modality_type=modality_type,
+        dist_cls=dist_cls,
+        order=order,
+        adata=adata,
+        preprocess_steps=preprocess_steps)

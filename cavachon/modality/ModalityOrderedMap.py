@@ -4,7 +4,8 @@ import pandas as pd
 from anndata import AnnData
 from collections import OrderedDict
 from cavachon.environment.Constants import Constants
-from cavachon.modality import Modality
+from cavachon.modality.Modality import Modality
+from cavachon.parser.ConfigParser import ConfigParser
 from typing import Any, Dict, Optional
 
 class ModalityOrderedMap:
@@ -41,16 +42,11 @@ class ModalityOrderedMap:
     return
 
   @classmethod
-  def from_config(cls, config: Dict[str, Any]) -> None:
-    all_modality_config = config.get(Constants.CONFIG_NAME_MODALITY)
-    modality_list = []
-    for modality_config in all_modality_config:
-      modality_name = modality_config['name']
-      modality_list.append(Modality.from_config(modality_name, config))
-    modality_list.sort()
-
+  def from_config_parser(cls, cp: ConfigParser) -> None:
     data = OrderedDict()
-    for modality in modality_list:
-      data[modality.name] = modality
-    
+    for config in cp.config_modality:
+      modality_name = config.get('name')
+      modality = Modality.from_config_parser(modality_name, cp)
+      data.setdefault(modality.name, modality)
+
     return cls(data)

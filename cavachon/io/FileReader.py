@@ -1,6 +1,7 @@
 from anndata import AnnData
 from cavachon.environment.Constants import Constants
-from typing import Any, Dict, List, Optional, Tuple, Union
+
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 from scipy.io import mmread
 from scipy.sparse import csr_matrix, vstack
 
@@ -8,53 +9,50 @@ import os
 import pandas as pd
 import yaml
 
+if TYPE_CHECKING:
+  from cavachon.parser.ConfigParser import ConfigParser
+
 class FileReader:
 
   @staticmethod
-  def read_multiomics_data(config: Any, modality: str) -> AnnData:
-    """[TODO] Use get instead of ['key'], change keys to variables in 
-    Constants. Data Input.
-    Read (single-cell) multi-omics data for the given modality with 
-    the config.
+  def read_multiomics_data(cp: "ConfigParser", modality_name: str) -> AnnData:
+    """Read (single-cell) multi-omics data for the given modality with 
+    the loaded ConfigParser.
 
     Args:
-        config (Any): the config.
+        cp (ConfigParser): the loaded ConfigParser.
 
-        modality (str): the modality to read. 
+        modality_name (str): the modality to read. 
 
     Returns:
         AnnData: multi-omics data in AnnData format.
     """
-    ioconfig = config.get(Constants.CONFIG_IODIR)
-    datadir = os.path.realpath(ioconfig.get('datadir', './'))
+    datadir = cp.datadir
+    config_modality = cp.config_modality.get(modality_name, {})
+    config_sample_list = config_modality.get('samples', [])
+
     obs_df_list = []
     var_df_list = []
     matrix_list = []
-    for i, config in enumerate(config.get(Constants.CONFIG_NAME_SAMPLE, [])):
-      name = config.get('name', f'Sample-{i:>02}')
-      description = config.get('description', f'Sample-{i:>02}')
-      for sample_modality in config.get('modalities', []):
-        if sample_modality['name'] != modality:
-          continue
-      
-        obs_df = FileReader.read_table(
-            filename=os.path.join(datadir, sample_modality['barcodes']),
-            name=modality,
-            colnames=sample_modality['barcodes_colnames'])
-        obs_df['Sample'] = name
-        obs_df['Description'] = description
+    for config_sample in config_sample_list:
+      name = config_sample.get('name')
+      description = config_sample.get('description')
+      obs_df = FileReader.read_table(
+          filename=os.path.join(datadir, config_sample['barcodes']),
+          name=modality_name,
+          colnames=config_sample['barcodes_colnames'])
+      obs_df['Sample'] = name
+      obs_df['Description'] = description
 
-        var_df = FileReader.read_table(
-            filename=os.path.join(datadir, sample_modality['features']),
-            name=modality,
-            colnames=sample_modality['features_colnames'])
-
-        matrix_path = os.path.join(datadir, sample_modality['matrix'])
-        matrix = mmread(matrix_path).transpose().tocsr()
+      var_df = FileReader.read_table(
+          filename=os.path.join(datadir, config_sample['features']),
+          name=modality_name,
+          colnames=config_sample['features_colnames'])
       
-        obs_df_list.append(obs_df)
-        var_df_list.append(var_df)
-        matrix_list.append(matrix)
+      matrix = FileReader.read_mtx(os.path.join(datadir, config_sample['matrix']))
+      obs_df_list.append(obs_df)
+      var_df_list.append(var_df)
+      matrix_list.append(matrix)
     
     modality_obs_df = pd.concat(obs_df_list, axis=0)
     modality_var_df = pd.concat(var_df_list, axis=0)
