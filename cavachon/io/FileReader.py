@@ -35,14 +35,14 @@ class FileReader:
     var_df_list = []
     matrix_list = []
     for config_sample in config_sample_list:
-      name = config_sample.get('name')
-      description = config_sample.get('description')
+      sample_name = config_sample.get('sample_name')
+      sample_description = config_sample.get('sample_description')
       obs_df = FileReader.read_table(
           filename=os.path.join(datadir, config_sample['barcodes']),
           name=modality_name,
           colnames=config_sample['barcodes_colnames'])
-      obs_df['Sample'] = name
-      obs_df['Description'] = description
+      obs_df['Sample'] = sample_name
+      obs_df['Description'] = sample_description
 
       var_df = FileReader.read_table(
           filename=os.path.join(datadir, config_sample['features']),

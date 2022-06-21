@@ -112,7 +112,7 @@ class ConfigParser:
         modality_name = sample_modality.get('name', None)
         if modality_name in self.config_modality:
           updated_sample_modality = copy.deepcopy(sample_modality)
-          updated_sample_modality.setdefault('sample_names', sample_name)
+          updated_sample_modality.setdefault('sample_name', sample_name)
           updated_sample_modality.setdefault('sample_description', sample_description)
           self.config_modality[modality_name].get('samples', []).append(updated_sample_modality)
         else:
