@@ -1,12 +1,10 @@
-from types import ClassMethodDescriptorType
 import pandas as pd
 
-from anndata import AnnData
 from collections import OrderedDict
-from cavachon.environment.Constants import Constants
 from cavachon.modality.Modality import Modality
 from cavachon.parser.ConfigParser import ConfigParser
-from typing import Any, Dict, Optional
+from muon import MuData
+from typing import Optional
 
 class ModalityOrderedMap:
   def __init__(self, *args, **kwargs) -> None:
@@ -50,3 +48,15 @@ class ModalityOrderedMap:
       data.setdefault(modality.name, modality)
 
     return cls(data)
+
+  def export_mudata(self) -> MuData:
+    """Export the MultiOmicsData as MuData. The obs DataFrame of the all
+    modalities are ordered in the same way.
+
+    Returns:
+      mu.MuData: exported MuData.
+    """
+    mdata = MuData(self.data)
+    mdata.update()
+
+    return mdata
