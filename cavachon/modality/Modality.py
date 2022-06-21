@@ -5,6 +5,7 @@ from cavachon.environment.Constants import Constants
 from cavachon.io.FileReader import FileReader
 from cavachon.parser.ConfigParser import ConfigParser
 from cavachon.preprocess.PreprocessStep import PreprocessStep
+from cavachon.utils.AnnDataUtils import AnnDataUtils
 from cavachon.utils.ReflectionHandler import ReflectionHandler
 from typing import List
 
@@ -58,21 +59,7 @@ class Modality:
       warnings.warn(message, RuntimeWarning)
       return
     
-    obs_df = self.adata.obs
-    var_df = self.adata.var
-    matrix = self.adata.X
-    n_obs = obs_df.shape[0]
-    indices = pd.DataFrame(
-      {'IntegerIndex': range(0, n_obs)},
-      index=obs_df.index
-    )
-
-    selected_indices = indices.loc[obs_index, 'IntegerIndex'].values
-    selected_adata = AnnData(X=matrix[selected_indices])
-    selected_adata.obs = obs_df.iloc[selected_indices]
-    selected_adata.var = var_df
-
-    self.adata = selected_adata
+    self.adata = AnnDataUtils.reorder_or_filter_adata_obs(self.adata, obs_index)
     return
 
   @classmethod
@@ -84,8 +71,18 @@ class Modality:
     dist_cls_name = config.get(Constants.CONFIG_FIELD_MODALITY_DIST)
     dist_cls = ReflectionHandler.get_class_by_name(dist_cls_name)
     adata = FileReader.read_multiomics_data(cp, modality_name)
-    preprocess_config = config.get('modality')
-    preprocess_steps = None
+    config_preprocess_list = config.get(Constants.CONFIG_FIELD_MODALITY_PREPROCESS)
+    
+    # TODO: Sanitize this part
+    preprocess_steps = []
+    for config_preprocess in config_preprocess_list:
+      preprocess_step_cls_name = Constants.PREPROCESS_STEP_MAPPING.get(
+          config_preprocess.get('func'))
+      preprocess_step_cls = ReflectionHandler.get_class_by_name(preprocess_step_cls_name)
+      preprocess_steps.append(
+          preprocess_step_cls(
+              config_preprocess.get('name', ''),
+              config_preprocess.get('args', {})))
 
     return cls(
         name=modality_name,

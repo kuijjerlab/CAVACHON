@@ -1,12 +1,13 @@
 from __future__ import annotations
 from cavachon.preprocess.PreprocessStep import PreprocessStep
+import scanpy
 
-class Binarize(PreprocessStep):
+class FilterCells(PreprocessStep):
 
   def __init__(self, name, kwargs):
     super().__init__(name, kwargs)
-    
+
   def execute(self, modality: Modality) -> None:
-    threshold = self.kwargs.get('threshold', 1.0)
-    modality.adata.X[modality.adata.X >= threshold] = 1.0
+    self.kwargs['inplace'] = True
+    scanpy.pp.filter_cells(modality.adata, **self.kwargs)
     return

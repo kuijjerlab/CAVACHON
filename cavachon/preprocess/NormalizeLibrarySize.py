@@ -1,15 +1,18 @@
-import tensorflow as tf
+from __future__ import annotations
+from cavachon.preprocess.PreprocessStep import PreprocessStep
 
-from cavachon.preprocess.PreprocessBatch import PreprocessBatch
-from typing import Dict
+class NormalizeLibrarySize(PreprocessStep):
 
-class NormalizeLibrarySize(PreprocessBatch):
+  def __init__(self, name, kwargs):
+    super().__init__(name, kwargs)
 
-  @staticmethod
-  def execute(batch: Dict[str: tf.Tensor], modality: str) -> Dict[str, tf.Tensor]:
-    X_name = f'{modality}:matrix'
-    libsize_name = f'{modality}:libsize'
-    X = batch.get(X_name, None)
-    libsize = batch.get(libsize_name, None)
-    batch.update({X_name: X / libsize})
-    return batch
+  def execute(self, modality: Modality) -> None:
+    field = self.kwargs.get('field', None)
+    if field is not None and field in modality.adata.obs.columns:
+      libsize = modality.adata.obs[field].values
+    else:
+      libsize = modality.adata.X.sum(axis=1)
+      modality.adata.obs['libsize'] = libsize
+    modality.adata.X  = modality.adata.X / libsize
+    
+    return
