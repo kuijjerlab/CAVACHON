@@ -4,7 +4,7 @@ from cavachon.distributions.DistributionWrapper import DistributionWrapper
 from cavachon.environment.Constants import Constants
 from cavachon.io.FileReader import FileReader
 from cavachon.parser.ConfigParser import ConfigParser
-from cavachon.preprocess.Preprocess import Preprocess
+from cavachon.preprocess.PreprocessStep import PreprocessStep
 from cavachon.utils.ReflectionHandler import ReflectionHandler
 from typing import List
 
@@ -18,7 +18,7 @@ class Modality:
     self.order: int = order
     self.name: str = name
     self.adata: AnnData = adata
-    self.preprocess_steps: List[Preprocess] = preprocess_steps
+    self.preprocess_steps: List[PreprocessStep] = preprocess_steps
   
   def __lt__(self, other: Modality) -> bool:
     """Overwriten __lt__ function, so Modality can be sorted.
@@ -44,13 +44,14 @@ class Modality:
     self.adata = adata
     return
   
-  def reorder_adata(self, obs_ordered_index: pd.Index) -> None:
+  def reorder_or_filter_adata_obs(self, obs_index: pd.Index) -> None:
     """Reorder the AnnData of the modality so the order of obs DataFrame 
     in the AnnData is the same as the provided one.
 
     Args:
-      obs_ordered_index (pd.Index): the desired order of index for the
-      obs DataFrame.
+      obs_index (pd.Index): the desired order of index for the obs 
+      DataFrame for reordering or the kept index for the obs DataFrame 
+      for filtering.
     """
     if not isinstance(self.adata, AnnData):
       message = f"{self.__repr__}.adata is not an AnnData object, do nothing."
@@ -66,12 +67,12 @@ class Modality:
       index=obs_df.index
     )
 
-    reordered_indices = indices.loc[obs_ordered_index, 'IntegerIndex'].values
-    reordered_adata = AnnData(X=matrix[reordered_indices])
-    reordered_adata.obs = obs_df.iloc[reordered_indices]
-    reordered_adata.var = var_df
+    selected_indices = indices.loc[obs_index, 'IntegerIndex'].values
+    selected_adata = AnnData(X=matrix[selected_indices])
+    selected_adata.obs = obs_df.iloc[selected_indices]
+    selected_adata.var = var_df
 
-    self.adata = reordered_adata
+    self.adata = selected_adata
     return
 
   @classmethod
@@ -82,7 +83,7 @@ class Modality:
     order = config.get(Constants.CONFIG_FIELD_MODALITY_ORDER)
     dist_cls_name = config.get(Constants.CONFIG_FIELD_MODALITY_DIST)
     dist_cls = ReflectionHandler.get_class_by_name(dist_cls_name)
-    adata = FileReader.read_multiomics_data(config, modality_name)
+    adata = FileReader.read_multiomics_data(cp, modality_name)
     preprocess_config = config.get('modality')
     preprocess_steps = None
 

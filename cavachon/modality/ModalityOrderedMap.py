@@ -37,7 +37,7 @@ class ModalityOrderedMap:
         obs_ordered_index = obs_ordered_index.intersection(adata.obs.index)
 
     for modality in self.data.values():
-      modality.reorder_adata(obs_ordered_index)
+      modality.reorder_or_filter_adata_obs(obs_ordered_index)
         
     return
 
