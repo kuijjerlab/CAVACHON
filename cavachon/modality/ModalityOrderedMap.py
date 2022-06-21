@@ -39,11 +39,17 @@ class ModalityOrderedMap:
         
     return
 
+  def preprocess(self) -> None:
+    for modality_name, modality in self.data.items():
+      modality.preprocess()
+    
+    self.reorder_obs_in_modality()
+    return
+
   @classmethod
   def from_config_parser(cls, cp: ConfigParser) -> None:
     data = OrderedDict()
-    for config in cp.config_modality:
-      modality_name = config.get('name')
+    for modality_name, config in cp.config_modality.items():
       modality = Modality.from_config_parser(modality_name, cp)
       data.setdefault(modality.name, modality)
 

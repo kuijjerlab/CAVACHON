@@ -45,6 +45,12 @@ class Modality:
     self.adata = adata
     return
   
+  def preprocess(self) -> None:
+    for preprocess_step in self.preprocess_steps:
+      preprocess_step.execute(self)
+    
+    return
+
   def reorder_or_filter_adata_obs(self, obs_index: pd.Index) -> None:
     """Reorder the AnnData of the modality so the order of obs DataFrame 
     in the AnnData is the same as the provided one.
