@@ -15,8 +15,8 @@ class IndependentBernoulliWrapper(DistributionWrapper):
     self._parameters.setdefault('pi', tf.keras.activations.sigmoid(logits))
 
   @staticmethod
-  def export_decoders(n_dims):
+  def export_parameterizer(n_dims, name):
     decoders = dict()
-    decoders.setdefault('pi', Sequential([Dense(n_dims)]))
+    decoders.setdefault('logits', Sequential([Dense(n_dims)], name=f'{name}:logits'))
     
     return decoders

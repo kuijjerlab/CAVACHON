@@ -82,6 +82,9 @@ class ConfigParser:
       config.setdefault(
           'dist',
           Constants.DEFAULT_DIST[config.get(Constants.CONFIG_FIELD_MODALITY_TYPE)])
+      config.setdefault(Constants.CONFIG_FIELD_MODALITY_N_LAYERS, 3)
+      config.setdefault(Constants.CONFIG_FIELD_MODALITY_N_CLUSTERS, 5)
+      config.setdefault(Constants.CONFIG_FIELD_MODALITY_N_LATENT_DIMS, 32)
       if not config.get('dist').endswith('Wrapper'):
         config['dist'] += 'Wrapper'
       self.config_modality[modality_name] = config

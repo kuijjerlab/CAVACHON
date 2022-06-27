@@ -24,17 +24,13 @@ class IndependentZeroInflatedNegativeBinomialWrapper(DistributionWrapper):
     self._parameters.setdefault('dispersion', dispersion)
 
   @staticmethod
-  def export_decoders(n_dims):
+  def export_parameterizer(n_dims, name):
     decoders = dict()
-    decoders.setdefault('mean', Sequential([
-        Dense(n_dims)
-    ]))
+    decoders.setdefault('mean', Sequential([Dense(n_dims)], name=f'{name}:mean'))
     decoders.setdefault('pi', Sequential([
         Dense(n_dims * 2),
         Lambda(lambda x: tf.reshape(x, (-1, n_dims, 2)))
-    ]))
-    decoders.setdefault('dispersion', Sequential([
-        Softmax()
-    ])),
+    ], name=f'{name}:pi'))
+    decoders.setdefault('dispersion', Sequential([Dense(n_dims), Softmax()], name=f'{name}:mean'))
 
     return decoders

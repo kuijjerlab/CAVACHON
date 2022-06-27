@@ -5,12 +5,33 @@ import tensorflow as tf
 from cavachon.utils.DataFrameUtils import DataFrameUtils
 from scipy.sparse import csr_matrix
 from sklearn.preprocessing import LabelEncoder
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 class TensorUtils:
   """TensorUtils
   Utility functions for Tensorflow Tensor
   """
+
+  @staticmethod
+  def create_backbone_layers(
+    n_layers: int = 3,
+    base_n_neurons: int = 512,
+    min_n_neurons: int = 128,
+    reduce_rate: int = 2,
+    activation: str = 'relu',
+    reverse: bool = False,
+    name: Optional[str] = None) -> tf.keras.Model:
+
+    layers = []
+    for no_layer in range(0, n_layers):
+      n_neurons = max(base_n_neurons // reduce_rate ** no_layer, min_n_neurons)
+      layers.append(tf.keras.layers.Dense(n_neurons, activation=activation))
+      layers.append(tf.keras.layers.BatchNormalization())
+    
+    if reverse:
+      layers.reverse()
+    
+    return tf.keras.Sequential(layers, name=name)
 
   @staticmethod
   def create_tensor_from_df(

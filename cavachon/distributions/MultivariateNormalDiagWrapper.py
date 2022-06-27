@@ -18,9 +18,9 @@ class MultivariateNormalDiagWrapper(DistributionWrapper):
     self._parameters.setdefault('variance', self._dist.variance())
 
   @staticmethod
-  def export_decoders(n_dims):
+  def export_parameterizer(n_dims, name):
     decoders = dict()
-    decoders.setdefault('mean', Sequential([Dense(n_dims)]))
-    decoders.setdefault('logvar', Sequential([Dense(n_dims)]))
+    decoders.setdefault('mean', Sequential([Dense(n_dims)], name=f'{name}:mean'))
+    decoders.setdefault('logvar', Sequential([Dense(n_dims)], name=f'{name}:logvar'))
     
     return decoders

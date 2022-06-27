@@ -23,5 +23,5 @@ class DistributionWrapper(ABC):
     self._parameters = val
 
   @abstractstaticmethod
-  def export_decoders(self) -> Dict[str, tf.keras.Sequential]:
+  def export_parameterizer(n_dims, name) -> Dict[str, tf.keras.Sequential]:
     pass

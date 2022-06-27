@@ -13,13 +13,26 @@ import pandas as pd
 import warnings
 
 class Modality:
-  def __init__(self, name, modality_type, dist_cls, order, adata, preprocess_steps):
+  def __init__(
+      self,
+      name,
+      modality_type,
+      dist_cls,
+      order,
+      adata,
+      preprocess_steps,
+      n_layers,
+      n_clusters,
+      n_latent_dims):
     self.modality_type: str = modality_type
     self.dist_cls: DistributionWrapper = dist_cls
     self.order: int = order
     self.name: str = name
     self.adata: AnnData = adata
     self.preprocess_steps: List[PreprocessStep] = preprocess_steps
+    self.n_layers: int = n_layers
+    self.n_clusters: int = n_clusters
+    self.n_latent_dims: int = n_latent_dims
   
   def __lt__(self, other: Modality) -> bool:
     """Overwriten __lt__ function, so Modality can be sorted.
@@ -78,7 +91,10 @@ class Modality:
     dist_cls = ReflectionHandler.get_class_by_name(dist_cls_name)
     adata = FileReader.read_multiomics_data(cp, modality_name)
     config_preprocess_list = config.get(Constants.CONFIG_FIELD_MODALITY_PREPROCESS)
-    
+    n_layers = config.get(Constants.CONFIG_FIELD_MODALITY_N_LAYERS)
+    n_clusters = config.get(Constants.CONFIG_FIELD_MODALITY_N_CLUSTERS)
+    n_latent_dims = config.get(Constants.CONFIG_FIELD_MODALITY_N_LATENT_DIMS)
+
     # TODO: Sanitize this part
     preprocess_steps = []
     for config_preprocess in config_preprocess_list:
@@ -96,4 +112,7 @@ class Modality:
         dist_cls=dist_cls,
         order=order,
         adata=adata,
-        preprocess_steps=preprocess_steps)
+        preprocess_steps=preprocess_steps,
+        n_layers=n_layers,
+        n_clusters=n_clusters,
+        n_latent_dims=n_latent_dims)
