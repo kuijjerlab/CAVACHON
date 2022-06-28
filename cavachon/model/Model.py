@@ -9,7 +9,7 @@ from cavachon.utils.TensorUtils import TensorUtils
 from collections import OrderedDict
 from sklearn.metrics.cluster import contingency_matrix
 from sklearn.preprocessing import LabelEncoder
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from time import time
 
 import matplotlib.pyplot as plt
@@ -31,17 +31,31 @@ class Model(tf.keras.Model):
     self.modality_names: List[str] = list(modality_ordered_map.data)
     self.module = Module(modality_ordered_map)
 
+  def compile(
+      self,
+      loss,
+      **kwargs
+  ):
+    super().compile(loss=loss, **kwargs)
+    self.compiled_loss = loss
+    return
+
   def call(
       self,
       inputs: Dict[str, tf.Tensor],
       training: bool = False,
-      mask: Optional[tf.Tensor] = None) -> Tuple[List[Dict[str, tf.Tensor]], List[tf.Tensor]]:
+      mask: Optional[tf.Tensor] = None) -> Dict[str, Any]:
 
     z_parameters = self.encode(inputs, training=training)
     z, z_hat = self.encode_across_modalities(z_parameters, training=training)
     x_parameters = self.decode(inputs, z_hat, training=training)
 
-    return z_parameters, z, z_hat, x_parameters
+    result = dict()
+    result.setdefault('z_parameters', z_parameters)
+    result.setdefault('z', z)
+    result.setdefault('z_hat', z_hat)
+    result.setdefault('x_parameters', x_parameters)
+    return result
 
   def encode(
       self,
@@ -124,9 +138,9 @@ class Model(tf.keras.Model):
   def train_step(self, data):
     with tf.GradientTape() as tape:
       result = self(data, training = True)
-      loss = self.compiled_loss(result, result)
+      loss = self.compiled_loss(data, result)
     
     gradients = tape.gradient(loss, self.trainable_variables)
     self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
-    self.compiled_metrics.update_state(result, result)
+    self.compiled_metrics.update_state(data, result)
     return { metric.name: metric.result() for metric in self.metrics }

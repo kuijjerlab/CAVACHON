@@ -22,6 +22,14 @@ class DistributionWrapper(ABC):
   def parameters(self, val):
     self._parameters = val
 
+  def log_prob(self, *args, **kwargs):
+    return self._dist.log_prob(*args, **kwargs)
+
+  def prob(self, *args, **kwargs):
+    return self._dist.prob(*args, **kwargs)
+
   @abstractstaticmethod
   def export_parameterizer(n_dims, name) -> Dict[str, tf.keras.Sequential]:
     pass
+
+  

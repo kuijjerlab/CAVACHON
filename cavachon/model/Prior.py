@@ -34,8 +34,18 @@ class Prior(tf.keras.layers.Layer):
     super().__init__()
     self.latent_dims: int = n_latent_dims
     self.n_clusters: int = n_clusters   
-    self.add_weight(f'{name}:pi_y', (1, n_clusters))
-    self.add_weight(f'{name}:mean_z_y', (n_latent_dims, n_clusters))
-    self.add_weight(f'{name}:logvar_z_y', (n_latent_dims, n_clusters))
+    self.pi_logit_y = self.add_weight(f'{name}:pi_logit_y', (1, n_clusters))
+    self.mean_z_y = self.add_weight(f'{name}:mean_z_y', (n_latent_dims, n_clusters))
+    self.logvar_z_y = self.add_weight(f'{name}:logvar_z_y', (n_latent_dims, n_clusters))
 
     return
+
+  @property
+  def pi_y(self):
+    return tf.keras.activations.softmax(self.pi_logit_y)
+
+  @property
+  def var_z_y(self):
+    return tf.math.softplus(self.logvar_z_y)
+
+ 
