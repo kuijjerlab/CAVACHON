@@ -1,21 +1,23 @@
 
 from cavachon.distributions.MultivariateNormalDiagWrapper import MultivariateNormalDiagWrapper
 from cavachon.modality.ModalityOrderedMap import ModalityOrderedMap
+from cavachon.model.Parameterizer import Parameterizer
 from cavachon.model.Prior import Prior
 from cavachon.utils.TensorUtils import TensorUtils
 from collections import OrderedDict
 from typing import Dict
 import tensorflow as tf
 
-class Module:
+class Module(tf.keras.Model):
   def __init__(self, modality_ordered_map: ModalityOrderedMap):
+    super().__init__()
     self.encoder_backbone_networks: OrderedDict[tf.keras.Model] = OrderedDict()
     self.decoder_backbone_networks: OrderedDict[tf.keras.Model] = OrderedDict()
-    self.z_parameterizers: OrderedDict[Dict[str, tf.keras.Model]] = OrderedDict()
-    self.z_prior: OrderedDict[str, Prior] = OrderedDict()
+    self.z_parameterizers: Parameterizer = Parameterizer()
+    self.z_prior: OrderedDict[str, Prior] =  OrderedDict()
     self.decoder_r_networks: OrderedDict[tf.keras.Model] = OrderedDict()
     self.decoder_b_networks: OrderedDict[tf.keras.Model] = OrderedDict()
-    self.x_parameterizers: OrderedDict[Dict[str, tf.keras.Model]] = OrderedDict()
+    self.x_parameterizers: Parameterizer = Parameterizer()
 
     for name, modality in modality_ordered_map.data.items():
       n_layers = modality.n_layers

@@ -2,6 +2,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 from cavachon.distributions.DistributionWrapper import DistributionWrapper
+from cavachon.model.Parameterizer import Parameterizer
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, Lambda, Softmax
 
@@ -25,12 +26,12 @@ class IndependentZeroInflatedNegativeBinomialWrapper(DistributionWrapper):
 
   @staticmethod
   def export_parameterizer(n_dims, name):
-    decoders = dict()
+    decoders = Parameterizer()
     decoders.setdefault('mean', Sequential([Dense(n_dims), Softmax()], name=f'{name}:mean'))
     decoders.setdefault('pi_logit', Sequential([
         Dense(n_dims * 2),
         Lambda(lambda x: tf.reshape(x, (-1, n_dims, 2)))
     ], name=f'{name}:pi_logit'))
-    decoders.setdefault('dispersion', Sequential([Dense(n_dims), Softmax()], name=f'{name}:mean'))
+    decoders.setdefault('dispersion', Sequential([Dense(n_dims), Softmax()], name=f'{name}:dispersion'))
 
     return decoders

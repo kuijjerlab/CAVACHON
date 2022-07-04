@@ -1,7 +1,11 @@
 #%%
 from __future__ import annotations
+
+from prometheus_client import MetricsHandler
 from cavachon.distributions.DistributionWrapper import DistributionWrapper
 from cavachon.distributions.MultivariateNormalDiagWrapper import MultivariateNormalDiagWrapper
+from cavachon.losses.NegativeElbo import NegativeElbo
+from cavachon.metrics.CustomMetricsHandler import CustomMetricsHandler
 from cavachon.modality.ModalityOrderedMap import ModalityOrderedMap
 from cavachon.model.Module import Module
 from cavachon.utils.GeneralUtils import GeneralUtils
@@ -33,11 +37,12 @@ class Model(tf.keras.Model):
 
   def compile(
       self,
-      loss,
+      custom_loss: NegativeElbo,
       **kwargs
   ):
-    super().compile(loss=loss, **kwargs)
-    self.compiled_loss = loss
+    kwargs['run_eagerly'] = True
+    super().compile(**kwargs)
+    self.custom_loss = custom_loss
     return
 
   def call(
@@ -65,9 +70,11 @@ class Model(tf.keras.Model):
     z_parameters = OrderedDict()
     for modality_name in self.modality_names:
       network = self.module.encoder_backbone_networks.get(modality_name)
-      x_encoded = network(
-          tf.sparse.to_dense(inputs.get(f'{modality_name}:matrix')),
-          training=training)
+      matrix =  tf.sparse.to_dense(inputs.get(f'{modality_name}:matrix'))
+      if matrix.ndim == 1:
+        matrix = tf.reshape(matrix, (1, -1))
+      
+      x_encoded = network(matrix, training=training)
 
       parameters = dict()
       for parameter_name, parameterizer in self.module.z_parameterizers.get(modality_name).items():
@@ -124,6 +131,8 @@ class Model(tf.keras.Model):
     x_parameters = OrderedDict()
     for modality_name in self.modality_names:
       batch_effect = inputs.get(f'{modality_name}:batch_effect')
+      if batch_effect.ndim == 1:
+        batch_effect = tf.reshape(batch_effect, (1, -1))
       decoder_input = tf.concat([z_hat.get(modality_name), batch_effect], axis=1)
       z_decoded = self.module.decoder_backbone_networks.get(modality_name)(
           decoder_input,
@@ -138,9 +147,14 @@ class Model(tf.keras.Model):
   def train_step(self, data):
     with tf.GradientTape() as tape:
       result = self(data, training = True)
-      loss = self.compiled_loss(data, result)
-    
-    gradients = tape.gradient(loss, self.trainable_variables)
-    self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
-    self.compiled_metrics.update_state(data, result)
-    return { metric.name: metric.result() for metric in self.metrics }
+      self.update_loss_module()
+      loss = self.custom_loss(data, result)
+      gradients = tape.gradient(loss, self.module.trainable_variables)
+
+    self.optimizer.apply_gradients(zip(gradients, self.module.trainable_variables))
+    #self.custom_metrics.update_state(data, result)
+    #return { metric.name: metric.result() for metric in self.custom_metrics }
+    return {'Negative ELBO': self.custom_loss.cache, 'KL': self.custom_loss.standard_kl_divergence.cache, 'DL': self.custom_loss.negative_log_data_likelihood.cache}
+
+  def update_loss_module(self):
+    self.custom_loss.update_module(self.module)

@@ -28,15 +28,15 @@ class Prior(tf.keras.layers.Layer):
   """
   def __init__(
         self,
-        name: str,
+        prefix: str,
         n_latent_dims: int,
         n_clusters: int):
     super().__init__()
     self.latent_dims: int = n_latent_dims
     self.n_clusters: int = n_clusters   
-    self.pi_logit_y = self.add_weight(f'{name}:pi_logit_y', (1, n_clusters))
-    self.mean_z_y = self.add_weight(f'{name}:mean_z_y', (n_latent_dims, n_clusters))
-    self.logvar_z_y = self.add_weight(f'{name}:logvar_z_y', (n_latent_dims, n_clusters))
+    self.pi_logit_y = self.add_weight(f'{prefix}:pi_logit_y', (1, n_clusters), trainable=True)
+    self.mean_z_y = self.add_weight(f'{prefix}:mean_z_y', (n_latent_dims, n_clusters), trainable=True)
+    self.logvar_z_y = self.add_weight(f'{prefix}:logvar_z_y', (n_latent_dims, n_clusters), trainable=True)
 
     return
 

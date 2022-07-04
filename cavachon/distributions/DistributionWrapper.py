@@ -1,8 +1,9 @@
 
 import tensorflow as tf
 
-from typing import Dict
 from abc import ABC, abstractmethod, abstractstaticmethod
+from cavachon.model.Parameterizer import Parameterizer
+from typing import Dict
 
 class DistributionWrapper(ABC):
 
@@ -29,7 +30,7 @@ class DistributionWrapper(ABC):
     return self._dist.prob(*args, **kwargs)
 
   @abstractstaticmethod
-  def export_parameterizer(n_dims, name) -> Dict[str, tf.keras.Sequential]:
+  def export_parameterizer(n_dims, name) -> Parameterizer:
     pass
 
   

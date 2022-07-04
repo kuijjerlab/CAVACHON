@@ -2,6 +2,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 from cavachon.distributions.DistributionWrapper import DistributionWrapper
+from cavachon.model.Parameterizer import Parameterizer
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense
 
@@ -16,7 +17,7 @@ class IndependentBernoulliWrapper(DistributionWrapper):
 
   @staticmethod
   def export_parameterizer(n_dims, name):
-    decoders = dict()
+    decoders = Parameterizer()
     decoders.setdefault('pi_logit', Sequential([Dense(n_dims)], name=f'{name}:pi_logit'))
     
     return decoders

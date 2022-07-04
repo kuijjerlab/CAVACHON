@@ -1,1 +1,3 @@
-from .Elbo import Elbo
+from .NegativeLogDataLikelihood import NegativeLogDataLikelihood
+from .NegativeElbo import NegativeElbo
+from .StandardKLDivergence import StandardKLDivergence
