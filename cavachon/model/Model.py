@@ -1,28 +1,17 @@
-#%%
 from __future__ import annotations
 
-from prometheus_client import MetricsHandler
-from cavachon.distributions.DistributionWrapper import DistributionWrapper
 from cavachon.distributions.MultivariateNormalDiagWrapper import MultivariateNormalDiagWrapper
-from cavachon.losses.NegativeElbo import NegativeElbo
 from cavachon.metrics.CustomMetricsHandler import CustomMetricsHandler
 from cavachon.modality.ModalityOrderedMap import ModalityOrderedMap
 from cavachon.model.Module import Module
-from cavachon.utils.GeneralUtils import GeneralUtils
 from cavachon.utils.TensorUtils import TensorUtils
 from collections import OrderedDict
-from sklearn.metrics.cluster import contingency_matrix
-from sklearn.preprocessing import LabelEncoder
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 from time import time
 
-import matplotlib.pyplot as plt
 import numpy as np
 import os
-import pandas as pd
 import tensorflow as tf
-import tensorflow_probability as tfp
-import warnings
 
 class Model(tf.keras.Model):
   def __init__(
@@ -37,12 +26,14 @@ class Model(tf.keras.Model):
 
   def compile(
       self,
-      custom_loss: NegativeElbo,
+      custom_loss: CustomLoss,
+      custom_metrics: List[CustomMetrics],
       **kwargs
   ):
     kwargs['run_eagerly'] = True
     super().compile(**kwargs)
     self.custom_loss = custom_loss
+    self.custom_metrics = CustomMetricsHandler(custom_metrics)
     return
 
   def call(
@@ -153,7 +144,8 @@ class Model(tf.keras.Model):
       gradients = TensorUtils.remove_nan_gradients(gradients)
 
     self.optimizer.apply_gradients(zip(gradients, self.module.trainable_variables))
-    return {'Negative ELBO': self.custom_loss.cache, 'KL': self.custom_loss.standard_kl_divergence.cache, 'DL': self.custom_loss.negative_log_data_likelihood.cache}
+    self.custom_metrics.update_state(data, result, self.module, self.custom_loss.modality_ordered_map)
+    return { metric.name: metric.result() for metric in self.custom_metrics }
 
   def update_loss_module(self):
     self.custom_loss.update_module(self.module)
