@@ -150,10 +150,9 @@ class Model(tf.keras.Model):
       self.update_loss_module()
       loss = self.custom_loss(data, result)
       gradients = tape.gradient(loss, self.module.trainable_variables)
+      gradients = TensorUtils.remove_nan_gradients(gradients)
 
     self.optimizer.apply_gradients(zip(gradients, self.module.trainable_variables))
-    #self.custom_metrics.update_state(data, result)
-    #return { metric.name: metric.result() for metric in self.custom_metrics }
     return {'Negative ELBO': self.custom_loss.cache, 'KL': self.custom_loss.standard_kl_divergence.cache, 'DL': self.custom_loss.negative_log_data_likelihood.cache}
 
   def update_loss_module(self):

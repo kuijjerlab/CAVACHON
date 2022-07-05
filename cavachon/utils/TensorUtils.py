@@ -13,6 +13,12 @@ class TensorUtils:
   """
 
   @staticmethod
+  def remove_nan_gradients(gradients: List[tf.Tensor]) -> List[tf.Tensor]:
+    for i, g in enumerate(gradients):
+      gradients[i] = tf.where(tf.math.is_nan(g), tf.zeros_like(g), g)
+    return gradients
+
+  @staticmethod
   def create_backbone_layers(
     n_layers: int = 3,
     base_n_neurons: int = 512,
