@@ -5,6 +5,7 @@ from cavachon.environment.Constants import Constants
 from cavachon.io.FileReader import FileReader
 from cavachon.parser.ConfigParser import ConfigParser
 from cavachon.preprocess.PreprocessStep import PreprocessStep
+from cavachon.postprocess.PostprocessStep import PostprocessStep
 from cavachon.utils.AnnDataUtils import AnnDataUtils
 from cavachon.utils.ReflectionHandler import ReflectionHandler
 from typing import List
@@ -21,6 +22,7 @@ class Modality:
       order,
       adata,
       preprocess_steps,
+      postprocess_steps,
       n_layers,
       n_clusters,
       n_latent_dims):
@@ -30,6 +32,7 @@ class Modality:
     self.name: str = name
     self.adata: AnnData = adata
     self.preprocess_steps: List[PreprocessStep] = preprocess_steps
+    self.postprocess_steps: List[PostprocessStep] = postprocess_steps
     self.n_layers: int = n_layers
     self.n_clusters: int = n_clusters
     self.n_latent_dims: int = n_latent_dims
@@ -90,7 +93,9 @@ class Modality:
     dist_cls_name = config.get(Constants.CONFIG_FIELD_MODALITY_DIST)
     dist_cls = ReflectionHandler.get_class_by_name(dist_cls_name)
     adata = FileReader.read_multiomics_data(cp, modality_name)
-    config_preprocess_list = config.get(Constants.CONFIG_FIELD_MODALITY_PREPROCESS)
+    # TODO: Change default values to ConfigParser
+    config_preprocess_list = config.get(Constants.CONFIG_FIELD_MODALITY_PREPROCESS, [])
+    config_postprocess_list = config.get(Constants.CONFIG_FIELD_MODALITY_POSTPROCESS, [])
     n_layers = config.get(Constants.CONFIG_FIELD_MODALITY_N_LAYERS)
     n_clusters = config.get(Constants.CONFIG_FIELD_MODALITY_N_CLUSTERS)
     n_latent_dims = config.get(Constants.CONFIG_FIELD_MODALITY_N_LATENT_DIMS)
@@ -105,6 +110,16 @@ class Modality:
           preprocess_step_cls(
               config_preprocess.get('name', ''),
               config_preprocess.get('args', {})))
+    
+    postprocess_steps = []
+    for config_postprocess in config_postprocess_list:
+      postprocess_step_cls_name = Constants.POSTPROCESS_STEP_MAPPING.get(
+        config_postprocess.get('func'))
+      postprocess_step_cls = ReflectionHandler.get_class_by_name(postprocess_step_cls_name)
+      postprocess_steps.append(
+          postprocess_step_cls(
+              config_preprocess.get('name', ''),
+              modality_name))
 
     return cls(
         name=modality_name,
@@ -113,6 +128,7 @@ class Modality:
         order=order,
         adata=adata,
         preprocess_steps=preprocess_steps,
+        postprocess_steps=postprocess_steps,
         n_layers=n_layers,
         n_clusters=n_clusters,
         n_latent_dims=n_latent_dims)
