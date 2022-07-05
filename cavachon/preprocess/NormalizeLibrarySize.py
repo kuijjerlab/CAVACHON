@@ -12,6 +12,7 @@ class NormalizeLibrarySize(PreprocessStep):
     field = self.kwargs.get('field', None)
     if field is not None and field in modality.adata.obs.columns:
       libsize = np.reshape(modality.adata.obs[field].values, (-1, 1))
+      modality.adata.obs['libsize'] = libsize
     else:
       libsize = modality.adata.X.sum(axis=1)
       modality.adata.obs['libsize'] = libsize

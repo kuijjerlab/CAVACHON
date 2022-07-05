@@ -32,17 +32,23 @@ class DataLoader:
     format.
  
   """
-  def __init__(self, mdata: mu.MuData) -> None:
+  def __init__(
+      self,
+      mdata: mu.MuData,
+      libsize_colnames_dict: Dict[str, str] = dict(),
+      batch_effect_colnames_dict: Dict[str, str] = dict()) -> None:
     self.batch_effect_encoder: Dict[str, LabelEncoder] = dict()
     self.mdata: mu.MuData = mdata
-    self.dataset: tf.data.Dataset = self.create_dataset(self.mdata)
+    self.dataset: tf.data.Dataset = self.create_dataset(
+        libsize_colnames_dict, 
+        batch_effect_colnames_dict)
 
     return
 
   def create_dataset(
       self,
-      libsize_colnames_dict: Dict[str, str] = None,
-      batch_effect_colnames_dict: Dict[str, List[str]] = None) -> tf.data.Dataset:
+      libsize_colnames_dict: Dict[str, str] = dict(),
+      batch_effect_colnames_dict: Dict[str, List[str]] = dict()) -> tf.data.Dataset:
     """Create a Tensorflow Dataset based on the MuData provided in the 
     __init__ function.
 
@@ -72,14 +78,15 @@ class DataLoader:
       adata = self.mdata[modality]
       data_tensor = TensorUtils.csr_to_sparse_tensor(adata.X)
       
-      if (libsize_colnames_dict is None or 
-          modality not in libsize_colnames_dict or
-          libsize_colnames_dict[modality] not in adata.obs.columns):
-        # if library colname is not specified for the current modality, use the 
-        # row sum of the matrix
-        libsize_tensor = tf.convert_to_tensor(adata.X.sum(axis=1))
+      if 'libsize' not in adata.obs.columns:
+        if (libsize_colnames_dict is None or
+            modality not in libsize_colnames_dict or
+            libsize_colnames_dict[modality] not in adata.obs.columns):
+          # if library colname is not specified for the current modality, use the 
+          # row sum of the matrix
+          libsize_tensor = tf.convert_to_tensor(adata.X.sum(axis=1))
       else:
-        library_colname = libsize_colnames_dict[modality]
+        library_colname = libsize_colnames_dict.get(modality, 'libsize')
         libsize_tensor, _ = TensorUtils.create_tensor_from_df(
             adata.obs, [library_colname]
         )
