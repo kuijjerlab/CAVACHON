@@ -1,11 +1,9 @@
-from cavachon.distributions.MultivariateNormalDiagWrapper import MultivariateNormalDiagWrapper
-from cavachon.model.Module import Module
-from cavachon.modality.ModalityOrderedMap import ModalityOrderedMap
+
+from cavachon.losses.CustomLoss import CustomLoss
 
 import tensorflow as tf
-import tensorflow_probability as tfp
 
-class NegativeLogDataLikelihood(tf.keras.losses.Loss):
+class NegativeLogDataLikelihood(CustomLoss, tf.keras.losses.Loss):
   def __init__(self, module, modality_ordered_map, name='negative_log_data_likelihood', **kwargs):
     kwargs.setdefault('name', name)
     super().__init__(**kwargs)

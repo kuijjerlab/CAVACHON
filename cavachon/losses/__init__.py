@@ -1,3 +1,4 @@
+from .CustomLoss import CustomLoss
 from .NegativeLogDataLikelihood import NegativeLogDataLikelihood
 from .NegativeElbo import NegativeElbo
-from .StandardKLDivergence import StandardKLDivergence
+from .KLDivergence import KLDivergence

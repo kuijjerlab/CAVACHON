@@ -1,11 +1,9 @@
-from cavachon.distributions.MultivariateNormalDiagWrapper import MultivariateNormalDiagWrapper
 from typing import Dict
 
 import tensorflow as tf
-import tensorflow_probability as tfp
 
 from cavachon.losses.NegativeLogDataLikelihood import NegativeLogDataLikelihood
-from cavachon.losses.StandardKLDivergence import StandardKLDivergence
+from cavachon.losses.KLDivergence import KLDivergence
 
 class NegativeElbo(tf.keras.losses.Loss):
   def __init__(self, module, modality_ordered_map, name='negative_evidence_lower_bound', **kwargs):
@@ -16,7 +14,7 @@ class NegativeElbo(tf.keras.losses.Loss):
     self.negative_log_data_likelihood: NegativeLogDataLikelihood = NegativeLogDataLikelihood(
         self.module,
         self.modality_ordered_map)
-    self.standard_kl_divergence: StandardKLDivergence = StandardKLDivergence(
+    self.standard_kl_divergence: KLDivergence = KLDivergence(
         self.module,
         self.modality_ordered_map)
     self.cache: Dict[tf.Tensor] = tf.zeros((1,))

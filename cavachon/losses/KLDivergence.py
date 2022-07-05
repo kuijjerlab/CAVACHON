@@ -1,16 +1,17 @@
 from cavachon.distributions.MultivariateNormalDiagWrapper import MultivariateNormalDiagWrapper
+from cavachon.losses.CustomLoss import CustomLoss
 from cavachon.model.Module import Module
 from cavachon.modality.ModalityOrderedMap import ModalityOrderedMap
 
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-class StandardKLDivergence(tf.keras.losses.Loss):
+class KLDivergence(CustomLoss, tf.keras.losses.Loss):
   def __init__(
       self,
       module: Module,
       modality_ordered_map: ModalityOrderedMap,
-      name='standard_kullback_leibler_divergence',
+      name='kullback_leibler_divergence',
       **kwargs):
     kwargs.setdefault('name', name)
     super().__init__(**kwargs)

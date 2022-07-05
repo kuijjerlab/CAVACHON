@@ -1,9 +1,5 @@
-
-import tensorflow as tf
-
-from abc import ABC, abstractmethod, abstractstaticmethod
-from cavachon.model.Parameterizer import Parameterizer
-from typing import Dict
+from __future__ import annotations
+from abc import ABC, abstractstaticmethod
 
 class DistributionWrapper(ABC):
 
