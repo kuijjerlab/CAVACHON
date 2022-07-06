@@ -1,6 +1,5 @@
 
 from cavachon.losses.CustomLoss import CustomLoss
-from cavachon.postprocess.PostprocessStep import PostprocessStep
 from typing import Dict
 
 import tensorflow as tf
@@ -11,9 +10,6 @@ class NegativeLogDataLikelihood(CustomLoss, tf.keras.losses.Loss):
     super().__init__(**kwargs)
     self.module = module
     self.modality_ordered_map = modality_ordered_map
-    self.postprocess_steps: Dict[str, PostprocessStep] = dict()
-    for modality_name, modality in modality_ordered_map.data.items():
-      self.postprocess_steps.setdefault(modality_name, modality.postprocess_steps)
     self.cache: tf.Tensor = tf.zeros((1, ))
 
   def call(self, y_true, y_pred, sample_weight=None):

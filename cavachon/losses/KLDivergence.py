@@ -41,9 +41,11 @@ class KLDivergence(CustomLoss, tf.keras.losses.Loss):
       logpz_y = dist_z_y.log_prob(tf.expand_dims(z.get(modality_name), -2))
       logpy = tf.math.log(z_prior.pi_y + 1e-7)
       logpz = dist_z.log_prob(tf.expand_dims(z.get(modality_name), -2))
-      
-      logpy_z = logpz_y + logpy - logpz
-      py_z = tf.exp(logpy_z)
+
+      py_z = tf.keras.activations.softmax(logpz_y + logpy)
+      logpy_z = tf.math.log(py_z + 1e-7)      
+      #logpy_z = logpz_y + logpy - logpz
+      #py_z = tf.exp(logpy_z)
       
       # term (b): 𝚺_j𝚺_y[py_z(logpz_y)]
       py_z_logpz_y = tf.reduce_sum(py_z * logpz_y, axis=-1)

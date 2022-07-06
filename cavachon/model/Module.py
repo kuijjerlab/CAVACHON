@@ -52,6 +52,6 @@ class Module(tf.keras.Model):
           tf.keras.Sequential([tf.keras.layers.Dense(32)], name=f"{name}:decoder_b"))
       self.x_parameterizers.setdefault(
           name,
-          modality.dist_cls.export_parameterizer(n_data_dims, name=f"{name}:x_parameterizer")
+          modality.dist_wrapper.export_parameterizer(n_data_dims, name=f"{name}:x_parameterizer")
       )
     

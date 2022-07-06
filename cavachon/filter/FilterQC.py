@@ -1,5 +1,5 @@
 from __future__ import annotations
-from cavachon.preprocess.PreprocessStep import PreprocessStep
+from cavachon.filter.FilterStep import FilterStep
 from cavachon.utils.AnnDataUtils import AnnDataUtils
 from cavachon.utils.GeneralUtils import GeneralUtils
 
@@ -9,10 +9,10 @@ import pandas as pd
 import scanpy
 import warnings
 
-class FilterQC(PreprocessStep):
+class FilterQC(FilterStep):
 
-  def __init__(self, name, kwargs):
-    super().__init__(name, kwargs)
+  def __init__(self, name, args):
+    super().__init__(name, args)
 
   def execute(self, modality: Modality) -> None:    
     n_obs = modality.adata.obs.shape[0]
@@ -54,4 +54,7 @@ class FilterQC(PreprocessStep):
       raise RuntimeError(message)
 
     modality.adata = AnnDataUtils.reorder_or_filter_adata_obs(modality.adata, obs_index)
+    modality.n_obs = modality.adata.n_obs
+    modality.n_vars = modality.adata.n_vars
+    
     return

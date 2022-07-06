@@ -1,14 +1,16 @@
-import pandas as pd
-
+from __future__ import annotations
 from collections import OrderedDict
 from cavachon.modality.Modality import Modality
 from cavachon.parser.ConfigParser import ConfigParser
 from muon import MuData
 from typing import Optional
 
+import pandas as pd
+
 class ModalityOrderedMap:
-  def __init__(self, *args, **kwargs) -> None:
-    self.data: OrderedDict[str, Modality] = OrderedDict(*args, **kwargs)
+  """TODO: implement MutableMap interface"""
+  def __init__(self, ordered_dict: OrderedDict[str, Modality]) -> None:
+    self.data: OrderedDict[str, Modality] = ordered_dict
     self.reorder_obs_in_modality()
 
   def reorder_obs_in_modality(
@@ -37,13 +39,6 @@ class ModalityOrderedMap:
     for modality in self.data.values():
       modality.reorder_or_filter_adata_obs(obs_ordered_index)
         
-    return
-
-  def preprocess(self) -> None:
-    for modality_name, modality in self.data.items():
-      modality.preprocess()
-    
-    self.reorder_obs_in_modality()
     return
 
   @classmethod

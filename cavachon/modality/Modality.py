@@ -1,11 +1,8 @@
 from __future__ import annotations
 from anndata import AnnData
-from cavachon.distributions.DistributionWrapper import DistributionWrapper
 from cavachon.environment.Constants import Constants
 from cavachon.io.FileReader import FileReader
 from cavachon.parser.ConfigParser import ConfigParser
-from cavachon.preprocess.PreprocessStep import PreprocessStep
-from cavachon.postprocess.PostprocessStep import PostprocessStep
 from cavachon.utils.AnnDataUtils import AnnDataUtils
 from cavachon.utils.ReflectionHandler import ReflectionHandler
 from typing import List
@@ -16,26 +13,24 @@ import warnings
 class Modality:
   def __init__(
       self,
-      name,
-      modality_type,
-      dist_cls,
+      name: str,
+      modality_type: str,
+      dist_wrapper: DistributionWrapper,
       order,
       adata,
-      preprocess_steps,
-      postprocess_steps,
       n_layers,
       n_clusters,
       n_latent_dims):
-    self.modality_type: str = modality_type
-    self.dist_cls: DistributionWrapper = dist_cls
-    self.order: int = order
     self.name: str = name
+    self.modality_type: str = modality_type
+    self.dist_wrapper: DistributionWrapper = dist_wrapper
+    self.order: int = order
     self.adata: AnnData = adata
-    self.preprocess_steps: List[PreprocessStep] = preprocess_steps
-    self.postprocess_steps: List[PostprocessStep] = postprocess_steps
     self.n_layers: int = n_layers
     self.n_clusters: int = n_clusters
     self.n_latent_dims: int = n_latent_dims
+    self.n_obs: int = adata.n_obs
+    self.n_vars: int = adata.n_vars
   
   def __lt__(self, other: Modality) -> bool:
     """Overwriten __lt__ function, so Modality can be sorted.
@@ -53,18 +48,13 @@ class Modality:
     return f"Modality {self.order:>02}: {self.name} ({self.modality_type})"
   
   def set_adata(self, adata: AnnData) -> None:
+    """TODO DEPRECATED, can be removed"""
     if not isinstance(adata, AnnData):
       message = f"adata is not an AnnData object, do nothing."
       warnings.warn(message, RuntimeWarning)
       return
     
     self.adata = adata
-    return
-  
-  def preprocess(self) -> None:
-    for preprocess_step in self.preprocess_steps:
-      preprocess_step.execute(self)
-    
     return
 
   def reorder_or_filter_adata_obs(self, obs_index: pd.Index) -> None:
@@ -90,45 +80,19 @@ class Modality:
     modality_name = config.get('name')
     modality_type = config.get(Constants.CONFIG_FIELD_MODALITY_TYPE)
     order = config.get(Constants.CONFIG_FIELD_MODALITY_ORDER)
-    dist_cls_name = config.get(Constants.CONFIG_FIELD_MODALITY_DIST)
-    dist_cls = ReflectionHandler.get_class_by_name(dist_cls_name)
+    dist_wrapper_name = config.get(Constants.CONFIG_FIELD_MODALITY_DIST)
+    dist_wrapper = ReflectionHandler.get_class_by_name(dist_wrapper_name)
     adata = FileReader.read_multiomics_data(cp, modality_name)
-    # TODO: Change default values to ConfigParser
-    config_preprocess_list = config.get(Constants.CONFIG_FIELD_MODALITY_PREPROCESS, [])
-    config_postprocess_list = config.get(Constants.CONFIG_FIELD_MODALITY_POSTPROCESS, [])
     n_layers = config.get(Constants.CONFIG_FIELD_MODALITY_N_LAYERS)
     n_clusters = config.get(Constants.CONFIG_FIELD_MODALITY_N_CLUSTERS)
     n_latent_dims = config.get(Constants.CONFIG_FIELD_MODALITY_N_LATENT_DIMS)
 
-    # TODO: Sanitize this part
-    preprocess_steps = []
-    for config_preprocess in config_preprocess_list:
-      preprocess_step_cls_name = Constants.PREPROCESS_STEP_MAPPING.get(
-          config_preprocess.get('func'))
-      preprocess_step_cls = ReflectionHandler.get_class_by_name(preprocess_step_cls_name)
-      preprocess_steps.append(
-          preprocess_step_cls(
-              config_preprocess.get('name', ''),
-              config_preprocess.get('args', {})))
-    
-    postprocess_steps = []
-    for config_postprocess in config_postprocess_list:
-      postprocess_step_cls_name = Constants.POSTPROCESS_STEP_MAPPING.get(
-        config_postprocess.get('func'))
-      postprocess_step_cls = ReflectionHandler.get_class_by_name(postprocess_step_cls_name)
-      postprocess_steps.append(
-          postprocess_step_cls(
-              config_preprocess.get('name', ''),
-              modality_name))
-
     return cls(
         name=modality_name,
         modality_type=modality_type,
-        dist_cls=dist_cls,
+        dist_wrapper=dist_wrapper,
         order=order,
         adata=adata,
-        preprocess_steps=preprocess_steps,
-        postprocess_steps=postprocess_steps,
         n_layers=n_layers,
         n_clusters=n_clusters,
         n_latent_dims=n_latent_dims)

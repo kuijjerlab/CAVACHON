@@ -2,6 +2,7 @@ import copy
 import os
 from cavachon.environment.Constants import Constants
 from cavachon.io.FileReader import FileReader
+from cavachon.modifier.Identity import Identity
 from cavachon.utils.GeneralUtils import GeneralUtils
 from collections import OrderedDict
 from typing import Any, Dict
@@ -42,33 +43,39 @@ class ConfigParser:
 
   def setup(self) -> None:
     """Setup the configuration after reading config.yaml."""
-    self.setup_iopath()
-    self.setup_config_modality()
-    self.setup_config_sample()
+    self._setup_iopath()
+    self._setup_config_modality()
+    self._setup_config_sample()
     return    
 
-  def setup_iopath(self) -> None:
+  def _setup_iopath(self) -> None:
     """Setup IO related directories"""
     self.config_io = self.config.get(Constants.CONFIG_FIELD_IO)
     self.datadir = os.path.realpath(
         os.path.dirname(f'{self.config_io.get(Constants.CONFIG_FIELD_IO_DATADIR)}/'))
     return
 
-  def setup_config_modality(self) -> None:
+  def _setup_config_modality(self) -> None:
     """This function does the following:
     1. Setup config for modalities, transform the list of modality 
     config to a OrderedDict where the keys are the modality names, and 
     the values are the configuration for the modality. The order of the
     insertion depends on the order field in the config (in ascending
     order)
-    2. Check all the relevant fields are in the config. Set defualts if 
+    2. Check all the relevant fields are in the config. Set defaults if 
     the optional fields are not provided.
     """
+    # Clear the OrderedDict of config modality
+    self.config_modality = OrderedDict()
+    # Get the list of modality config
     config_list = self.config.get(Constants.CONFIG_FIELD_MODALITY, [])
+    # Sort the modality config based on Constants.CONFIG_FIELD_MODALITY_ORDER
     sorted_config_list = sorted(
         config_list, 
         key=lambda x: x.get(Constants.CONFIG_FIELD_MODALITY_ORDER, 0))
+
     for i, config in enumerate(sorted_config_list):
+      # Check if all required keys are in the modalilty config.
       all_required_keys_are_there, keys_not_provided = GeneralUtils.are_all_fields_in_mapping(
           Constants.CONFIG_FIELD_MODALITY_REQUIRED,
           config)
@@ -78,6 +85,8 @@ class ConfigParser:
         for key in keys_not_provided:
           message += f'{key} is required in the modality config for {modality_name}.\n'
         raise KeyError(message)
+
+      # Set default values
       config.setdefault('samples', [])
       config.setdefault(
           'dist',
@@ -85,13 +94,18 @@ class ConfigParser:
       config.setdefault(Constants.CONFIG_FIELD_MODALITY_N_LAYERS, 3)
       config.setdefault(Constants.CONFIG_FIELD_MODALITY_N_CLUSTERS, 5)
       config.setdefault(Constants.CONFIG_FIELD_MODALITY_N_LATENT_DIMS, 32)
+      config.setdefault(Constants.CONFIG_FIELD_MODALITY_FILTER, [])
+      config.setdefault(Constants.CONFIG_FIELD_MODALITY_PREPROCESS, [])
+      config.setdefault(Constants.CONFIG_FIELD_MODALITY_POSTPROCESS, [])
       if not config.get('dist').endswith('Wrapper'):
         config['dist'] += 'Wrapper'
+
+      # Save the processed result to the OrderedDict
       self.config_modality[modality_name] = config
 
     return
 
-  def setup_config_sample(self) -> None:
+  def _setup_config_sample(self) -> None:
     """This function does the following:
     1. Setup config for sample, transform the list of sample config to a 
     OrderedDict where the keys are the sample names, and the values are 
@@ -99,29 +113,39 @@ class ConfigParser:
     on the order the samples appear.
     2. Save the sample modality config to each modality in the 
     config_modality.
-    3. Check all the relevant fields are in the config. Set defualts if 
+    3. Check all the relevant fields are in the config. Set defaults if 
     the optional fields are not provided.
 
     Raises:
       KeyError: raise if the configuration for the modality of any 
       sample cannot be found in config_modality.
     """
+    # Clear the OrderedDict of config sample
+    self.config_sample = OrderedDict()
+    # Get the list of sample config
     config_list = self.config.get(Constants.CONFIG_FIELD_SAMPLE, [])
     for i, config in enumerate(config_list):
+      # Get sample information
       sample_name = config.get('name', f"Sample-{i:>02}")
       sample_description = config.get('description', f"Sample-{i:>02}")
       self.config_sample[sample_name] = config
+
+      # Check each modality config in the sample
       for sample_modality in config.get(Constants.CONFIG_FIELD_SAMPLE_MODALITY, []):
+        # Check if the modality name is in the OrderedDict of the modality config
         modality_name = sample_modality.get('name', None)
         if modality_name in self.config_modality:
+          # Set default values (add sample_name and sample_description if not provided)
           updated_sample_modality = copy.deepcopy(sample_modality)
           updated_sample_modality.setdefault('sample_name', sample_name)
           updated_sample_modality.setdefault('sample_description', sample_description)
+          # Put the sample information into the OrderedDict of the modality config
           self.config_modality[modality_name].get('samples', []).append(updated_sample_modality)
         else:
           message = f"No configuration for modality {modality_name} of sample {sample_name}"
           raise KeyError(message)
         
+        # Check if all required keys are in the modalilty sample.
         all_required_keys_are_there, keys_not_provided = GeneralUtils.are_all_fields_in_mapping(
           Constants.CONFIG_FIELD_SAMPLE_MODALITY_REQUIRED,
           sample_modality)
