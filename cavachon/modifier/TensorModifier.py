@@ -6,6 +6,7 @@ import tensorflow as tf
 
 class TensorModifier(ABC):
   """TODO: remove setter, maybe could refactor to something similar to FilterStep.py"""
+  """TODO: modality_name is not needed"""
   def __init__(self, name, args):
     self._name = name
     self._modality_name = args.get('modality_name')

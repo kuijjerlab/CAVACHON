@@ -8,8 +8,8 @@ class FilterGenes(FilterStep):
     super().__init__(name, args)
 
   def execute(self, modality: Modality) -> None:
-    self.kwargs['inplace'] = True
-    scanpy.pp.filter_genes(modality.adata, **self.kwargs)
+    self.args['inplace'] = True
+    scanpy.pp.filter_genes(modality.adata, **self.args)
     modality.n_obs = modality.adata.n_obs
     modality.n_vars = modality.adata.n_vars
     return

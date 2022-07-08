@@ -16,12 +16,12 @@ class FilterQC(FilterStep):
 
   def execute(self, modality: Modality) -> None:    
     n_obs = modality.adata.obs.shape[0]
-    self.kwargs['inplace'] = True
+    self.args['inplace'] = True
 
     # the filter_threshold is not recognized in 
-    # scanpy.pp.calculate_qc_metrics, so we create a copy of self.kwargs 
+    # scanpy.pp.calculate_qc_metrics, so we create a copy of self.args 
     # and pop filter_threshold field.
-    kwargs_copy = copy.deepcopy(self.kwargs)
+    kwargs_copy = copy.deepcopy(self.args)
     filter_step_list = kwargs_copy.pop('filter_threshold')
     
     # the index columns will be 'Modality.name:colname', the colname 
