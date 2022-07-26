@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import anndata
 import muon as mu
 import os
 import tensorflow as tf
 
+from cavachon.environment.Constants import Constants
 from cavachon.modality.ModalityOrderedMap import ModalityOrderedMap
 from cavachon.parser.ConfigParser import ConfigParser
 from cavachon.utils.TensorUtils import TensorUtils
@@ -35,31 +35,21 @@ class DataLoader:
   def __init__(
       self,
       mdata: mu.MuData,
-      libsize_colnames_dict: Dict[str, str] = dict(),
-      batch_effect_colnames_dict: Dict[str, str] = dict()) -> None:
+      batch_effect_colnames_dict: Dict[str, List[str]] = dict()) -> None:
     self.batch_effect_encoder: Dict[str, LabelEncoder] = dict()
     self.mdata: mu.MuData = mdata
-    self.dataset: tf.data.Dataset = self.create_dataset(
-        libsize_colnames_dict, 
-        batch_effect_colnames_dict)
-
+    self.dataset: tf.data.Dataset = self.create_dataset(batch_effect_colnames_dict)
+  
     return
 
   def create_dataset(
       self,
-      libsize_colnames_dict: Dict[str, str] = dict(),
       batch_effect_colnames_dict: Dict[str, List[str]] = dict()) -> tf.data.Dataset:
     """Create a Tensorflow Dataset based on the MuData provided in the 
     __init__ function.
 
 
     Args:
-      libsize_colnames_dict (Dict[str, str], optional): dictionary of 
-      the column name of libsize in the obs DataFrame, where the keys 
-      are the modalities, and values are the libsize column corresponds 
-      to the modality. Note that the libsize column needs to be a 
-      continous variable. Defaults to None.
-
       batch_effect_colnames_dict (Dict[str, List[str]], optional): 
       dictionary of the column name of batch effect in the obs 
       DataFrame, where the keys are the modalities, and values are the 
@@ -74,40 +64,26 @@ class DataLoader:
       (tf.Tensor)
     """
     field_dict = dict()
-    for modality in self.mdata.mod.keys():
-      adata = self.mdata[modality]
+    for modality_name in self.mdata.mod.keys():
+      adata = self.mdata[modality_name]
       data_tensor = TensorUtils.csr_to_sparse_tensor(adata.X)
-      
-      if 'libsize' not in adata.obs.columns:
-        if (libsize_colnames_dict is None or
-            modality not in libsize_colnames_dict or
-            libsize_colnames_dict[modality] not in adata.obs.columns):
-          # if library colname is not specified for the current modality, use the 
-          # row sum of the matrix
-          libsize_tensor = tf.convert_to_tensor(adata.X.sum(axis=1))
-      else:
-        library_colname = libsize_colnames_dict.get(modality, 'libsize')
-        libsize_tensor, _ = TensorUtils.create_tensor_from_df(
-            adata.obs, [library_colname]
-        )
 
-      if (batch_effect_colnames_dict is None or 
-          modality not in batch_effect_colnames_dict):
-        # if library colname is not specified for the current modality, use zero 
-        # matrix as batch effect
+      # if batch_effect colname is not specified for the current modality, use zero 
+      # matrix as batch effect
+      if (batch_effect_colnames_dict is None or modality_name not in batch_effect_colnames_dict):
         batch_effect_tensor = tf.zeros((adata.n_obs, 1))
       else:
         batch_effect_tensor, encoder_dict = TensorUtils.create_tensor_from_df(
-            adata.obs, batch_effect_colnames_dict[modality]
+            adata.obs, batch_effect_colnames_dict[modality_name]
         )
         for mod, encoder in encoder_dict.items():
-          self.batch_effect_encoder[f"{modality}:{mod}"] = encoder
+          self.batch_effect_encoder[f"{modality_name}:{mod}"] = encoder
 
-      field_dict.setdefault(f"{modality}:matrix", data_tensor)
-      field_dict.setdefault(f"{modality}:libsize", libsize_tensor)
-      field_dict.setdefault(f"{modality}:batch_effect", batch_effect_tensor)
+      field_dict.setdefault(f"{modality_name}/{Constants.TENSOR_NAME_X}", data_tensor)
+      field_dict.setdefault(f"{modality_name}/{Constants.TENSOR_NAME_BATCH}", batch_effect_tensor)
     
-    return tf.data.Dataset.from_tensor_slices(field_dict)
+    self.dataset = tf.data.Dataset.from_tensor_slices(field_dict)
+    return self.dataset
 
   @classmethod
   def from_modality_ordered_map(cls, modality_map: ModalityOrderedMap) -> DataLoader:
@@ -177,14 +153,4 @@ class DataLoader:
     datadir = os.path.realpath(datadir)
     os.makedirs(datadir, exist_ok=True)
     tf.data.experimental.save(self.dataset, datadir)
-    return
-
-  def save_mdata(self, path: str) -> None:
-    """Save MuData to local storage.
-
-    Args:
-      path (str): path where the h5mu file of MuData will be save.
-    """
-    path = os.path.realpath(path)
-    self.mdata.write_h5mu(path)
     return
