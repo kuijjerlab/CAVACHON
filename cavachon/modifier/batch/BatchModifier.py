@@ -4,7 +4,7 @@ from typing import Dict
 import tensorflow as tf
 
 class BatchModifier(Modifier):
-  def __init__(self, name, keep_original: bool = False):
+  def __init__(self, name, keep_original: bool = True):
     self.name = name
     self.keep_original = keep_original
 

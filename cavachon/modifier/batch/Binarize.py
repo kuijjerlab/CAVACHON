@@ -10,8 +10,8 @@ class Binarize(BatchModifier):
     super().__init__(*args, **kwargs)
     if threshold > 1.0 or threshold < 0.0:
       message = ''.join((
-          f'Invalid range for threshold in {self.__class__.__name___}. ',
-          f'Expected 0 ≤ threshold ≤ 1, get {threshold}. Set to 1.0.' 
+          f'Invalid range for threshold in {self.__class__.__name___} ',
+          f'({self.name}). Expected 0 ≤ threshold ≤ 1, get {threshold}. Set to 1.0.'
       ))
       warnings.warn(message, RuntimeWarning)
       threshold = 1.0
