@@ -5,14 +5,15 @@ import os
 import tensorflow as tf
 
 from cavachon.environment.Constants import Constants
-from cavachon.modality.ModalityOrderedMap import ModalityOrderedMap
 from cavachon.parser.ConfigParser import ConfigParser
 from cavachon.utils.TensorUtils import TensorUtils
+from collections import defaultdict
 from sklearn.preprocessing import LabelEncoder
-from typing import Dict, List
+from typing import Dict, Iterator
 
 class DataLoader:
   """DataLoader
+  [TODO: DEPRECATED DOCUMENTATION]
   Data loader to create Tensorflow dataset from MuData.
 
   Attributes:
@@ -35,76 +36,62 @@ class DataLoader:
   def __init__(
       self,
       mdata: mu.MuData,
-      batch_effect_colnames_dict: Dict[str, List[str]] = dict()) -> None:
-    self.batch_effect_encoder: Dict[str, LabelEncoder] = dict()
+      batch_size: int = 256) -> None:
+    self.batch_effect_encoder: Dict[str, Dict[str, LabelEncoder]] = defaultdict(dict)
+    self.batch_size: int = batch_size
     self.mdata: mu.MuData = mdata
-    self.dataset: tf.data.Dataset = self.create_dataset(batch_effect_colnames_dict)
-  
+    self.dataset: tf.data.Dataset = self.create_dataset()
+
     return
 
-  def create_dataset(
-      self,
-      batch_effect_colnames_dict: Dict[str, List[str]] = dict()) -> tf.data.Dataset:
+  def create_dataset(self) -> tf.data.Dataset:
     """Create a Tensorflow Dataset based on the MuData provided in the 
     __init__ function.
 
-
-    Args:
-      batch_effect_colnames_dict (Dict[str, List[str]], optional): 
-      dictionary of the column name of batch effect in the obs 
-      DataFrame, where the keys are the modalities, and values are the 
-      batch effect columns (in list) corresponds to the modality. The 
-      batch effect columns can be either categorical or continuous. 
-      Defaults to None.
-
     Returns:
       tf.data.Dataset: created Dataset. The field of the dataset 
-      includes "{modality}:matrix" (tf.SparseTensor), 
-      "{modality}:libsize" (tf.Tensor) and "{modality:batch_effect}" 
-      (tf.Tensor)
+      includes "{modality_name}/matrix" (tf.SparseTensor) and 
+      "{modality_name}/batch_effect" (tf.Tensor)
     """
-    field_dict = dict()
+    tensor_mapping = dict()
     for modality_name in self.mdata.mod.keys():
       adata = self.mdata[modality_name]
-      data_tensor = TensorUtils.csr_to_sparse_tensor(adata.X)
+      data_tensor = TensorUtils.spmatrix_to_sparse_tensor(adata.X)
 
       # if batch_effect colname is not specified for the current modality, use zero 
       # matrix as batch effect
-      if (batch_effect_colnames_dict is None or modality_name not in batch_effect_colnames_dict):
+      adata_config = adata.uns.get('cavachon/config', {})
+      batch_effect_colnames = adata_config.get('batch_effect_colnames', None)
+      if (batch_effect_colnames is None or len(batch_effect_colnames) == 0):
         batch_effect_tensor = tf.zeros((adata.n_obs, 1))
       else:
-        batch_effect_tensor, encoder_dict = TensorUtils.create_tensor_from_df(
-            adata.obs, batch_effect_colnames_dict[modality_name]
-        )
-        for mod, encoder in encoder_dict.items():
-          self.batch_effect_encoder[f"{modality_name}:{mod}"] = encoder
+        batch_effect_tensor, encoder_mapping = TensorUtils.create_tensor_from_df(
+            adata.obs, batch_effect_colnames)
+        for colnames, encoder in encoder_mapping.items():
+          self.batch_effect_encoder[modality_name][colnames] = encoder
 
-      field_dict.setdefault(f"{modality_name}/{Constants.TENSOR_NAME_X}", data_tensor)
-      field_dict.setdefault(f"{modality_name}/{Constants.TENSOR_NAME_BATCH}", batch_effect_tensor)
+      tensor_mapping.setdefault(
+          f"{modality_name}/{Constants.TENSOR_NAME_X}",
+          data_tensor)
+      tensor_mapping.setdefault(
+          f"{modality_name}/{Constants.TENSOR_NAME_BATCH}",
+          batch_effect_tensor)
     
-    self.dataset = tf.data.Dataset.from_tensor_slices(field_dict)
+    self.dataset = tf.data.Dataset.from_tensor_slices(tensor_mapping)
     return self.dataset
 
-  @classmethod
-  def from_modality_ordered_map(cls, modality_map: ModalityOrderedMap) -> DataLoader:
-    """Create DataLoader from the dictionary of AnnData.
-
-    Args:
-      adata_dict (Dict[str, anndata.AnnData]): dictionary of AnnData, 
-      where keys are the modality, values are the corresponding AnnData.
-
-    Returns:
-      DataLoader: DataLoader created from the dictionary of AnnData.
-    """
-    mdata = modality_map.export_mudata()
-    mdata.update()
-    return cls(mdata)
+  def __iter__(self) -> Iterator[tf.data.Dataset]:
+    return iter(self.dataset.batch(self.batch_size))
   
   @classmethod
   def from_h5mu(cls, h5mu_path: str) -> DataLoader:
-    """Create DataLoader from h5mu file (of MuData). Note that the 
-    different modalities in the MuData needs to be sorted in a way that
-    the order of obs DataFrame needs to be the same.
+    """Create DataLoader from h5mu file (of MultiModality or MuData). 
+    Note that if provided with MuData: (1) the different modalities in 
+    the MuData needs to be sorted in a way that the order of obs
+    DataFrame needs to be the same. (2) the batch effect columns for 
+    each modality need to be stored in
+    adata.uns['cavachon/config']['batch_effect_columns'] if the user 
+    wish to consider batch effect while using the model. 
 
     Args:
       h5mu_path (str): path to the h5mu file.
@@ -119,7 +106,7 @@ class DataLoader:
 
   @classmethod
   def from_config_parser(cls, cp: ConfigParser) -> DataLoader:
-    """Create DataLoader from a given config yaml file (config.yaml).
+    """[DEPRECATED] Create DataLoader from a given config yaml file (config.yaml).
 
     Args:
       filename (str): the filename of the config yaml.
@@ -127,10 +114,7 @@ class DataLoader:
     Returns:
       DataLoader: DataLoader created from the config file.
     """
-    modality_map = ModalityOrderedMap.from_config_parser(cp)
-    modality_map.preprocess()
-    
-    return cls.from_modality_ordered_map(modality_map)
+    return
   
   def load_dataset(self, datadir: str) -> None:
     """Load Tensorflow Dataset snapshot.

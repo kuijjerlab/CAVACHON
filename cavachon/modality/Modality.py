@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import Union
+from typing import Collection, Optional, Union
 
 import anndata
 import numpy as np
@@ -16,7 +16,8 @@ class Modality(anndata.AnnData):
       order: int,
       n_layers: int,
       n_clusters: int,
-      n_latent_dims: int, 
+      n_latent_dims: int,
+      batch_effect_colnames: Optional[Collection[str]] = None,
       *args,
       **kwargs):
 
@@ -32,6 +33,7 @@ class Modality(anndata.AnnData):
       ('n_layers', n_layers),
       ('n_clusters', n_clusters),
       ('n_latent_dims', n_latent_dims),
+      ('batch_effect_colnames', batch_effect_colnames)
     ))
     cavachon_uns = OrderedDict((
       ('cavachon/config', cavachon_config),
