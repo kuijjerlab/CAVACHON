@@ -1,2 +1,2 @@
 from .Modality import Modality
-from .ModalityOrderedMap import ModalityOrderedMap
+from .MultiModality import MultiModality
