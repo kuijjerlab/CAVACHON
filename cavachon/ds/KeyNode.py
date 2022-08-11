@@ -8,9 +8,6 @@ class KeyNode(Hashable):
   
   def __hash__(self) -> int:
     return hash(self.key)
-
-  def __repr__(self) -> str:
-    return f"{{{self.key}: {self.value}}}"
   
 class PartialKeyNode(KeyNode):
   def __init__(self, key: Hashable):
@@ -24,6 +21,9 @@ class PartialKeyNode(KeyNode):
       result.update(node.values_in_subtree)
     return result
 
+  def __repr__(self) -> str:
+    return f"{self.__class__.__name__}({list(self.value.keys())})"
+
 class FullKeyNode(KeyNode):
   def __init__(self, key: Hashable, value: any):
     super().__init__(key)
@@ -32,4 +32,7 @@ class FullKeyNode(KeyNode):
   @property
   def values_in_subtree(self) -> Dict[Hashable, Any]:
     return { self.key: self.value }
+
+  def __repr__(self) -> str:
+    return f"{self.__class__.__name__}({self.key}: {self.value})"
 # %%

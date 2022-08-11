@@ -30,6 +30,9 @@ class PartialKeyMapping(MutableMapping):
       raise TypeError(f'{self.__class__.__name__}: expected at most 1 argument, got {len(args)}')
     self.update(*args, **kwargs)
   
+  def __repr__(self) -> str:
+    return f'{self.__class__.__name__}({{{self.nodes}}})'
+  
   def __setitem__(self, __k: Hashable, __v: Any) -> None:
     if isinstance(__k, str):
       __k = (__k, )
@@ -82,7 +85,7 @@ class PartialKeyMapping(MutableMapping):
         if len(simplified_key) == 1:
           simplified_key = simplified_key[0]
         result.setdefault(simplified_key, value)
-      return result
+      return PartialKeyMapping(result)
 
   def __delitem__(self, __k: Hashable) -> None:
     if isinstance(__k, str):
