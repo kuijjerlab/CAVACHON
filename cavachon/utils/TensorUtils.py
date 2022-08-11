@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
+import scipy
 import tensorflow as tf
 
 from cavachon.utils.DataFrameUtils import DataFrameUtils
-from scipy.sparse import csr_matrix
 from sklearn.preprocessing import LabelEncoder
 from typing import Dict, List, Optional, Tuple
 
@@ -21,22 +21,22 @@ class TensorUtils:
   @staticmethod
   def create_backbone_layers(
     n_layers: int = 3,
-    base_n_neurons: int = 512,
-    min_n_neurons: int = 128,
-    reduce_rate: int = 2,
-    activation: str = 'relu',
+    base_n_neurons: int = 64,
+    max_n_neurons: int = 512,
+    rate: int = 2,
+    activation: str = 'elu',
     reverse: bool = False,
     name: Optional[str] = None) -> tf.keras.Model:
 
     layers = []
-    for no_layer in range(0, n_layers):
-      n_neurons = max(base_n_neurons // reduce_rate ** no_layer, min_n_neurons)
+    for no_layer in range(0, n_layers - 1):
+      n_neurons = max(base_n_neurons * rate ** no_layer, max_n_neurons)
       layers.append(tf.keras.layers.Dense(n_neurons, activation=activation))
       layers.append(tf.keras.layers.BatchNormalization())
     
     if reverse:
       layers.reverse()
-    
+
     return tf.keras.Sequential(layers, name=name)
 
   @staticmethod
@@ -107,16 +107,16 @@ class TensorUtils:
     return encoded_tensor, encoder
 
   @staticmethod
-  def csr_to_sparse_tensor(csr_matrix: csr_matrix) -> tf.SparseTensor:
-    """Create a SparseTensor out of a scipy csr matrix.
+  def spmatrix_to_sparse_tensor(spmatrix: scipy.sparse.spmatrix) -> tf.SparseTensor:
+    """Create a SparseTensor out of a scipy sparse matrix.
 
     Args:
-      matrix (csr_matrix): the provided matrix
+      spmatrix (sparse matrix): the provided matrix
 
     Returns:
       tf.SparseTensor: the created SparseTensor.
     """
-    coo_matrix = csr_matrix.tocoo()
+    coo_matrix = spmatrix.tocoo()
     indices = np.mat([coo_matrix.row, coo_matrix.col]).transpose()
     sparse_tensor = tf.SparseTensor(indices, coo_matrix.data, coo_matrix.shape)
     return tf.cast(sparse_tensor, tf.float32)

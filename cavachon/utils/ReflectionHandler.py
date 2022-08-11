@@ -2,6 +2,9 @@ from cavachon.environment.Settings import Settings
 from importlib import import_module, util
 from pathlib import Path
 
+import glob
+import os
+
 class ReflectionHandler:
 
   @staticmethod
@@ -35,13 +38,15 @@ class ReflectionHandler:
     return ReflectionHandler._import_class(filenames[0], class_name)
 
   @staticmethod
-  def _get_filenames(class_name: str, subdirectory_name: str = "", partial=False):
-    pattern = f"cavachon/**/*{class_name}.py" if partial else f"cavachon/**/{class_name}.py"
-
-    filenames = list(Settings.root_path.glob(pattern))
-    filenames = [f for f in filenames if subdirectory_name in "/".join(f.parts)]
-
-    return filenames
+  def _get_filenames(class_name: str, subdirectory: str = "", max_depth=2, partial=False):
+    pattern = f"*{class_name}.py" if partial else f"{class_name}.py"
+    result = []
+    for depth in range(max_depth):
+      filename = f'cavachon/{subdirectory}/' + '**/' * (depth + 1) + pattern
+      if len(glob.glob(filename)) != 0:
+        result.append(Path(os.path.join(Settings.root_path, glob.glob(filename)[0])))
+        break
+    return result
 
   @staticmethod
   def all_subclasses(cls):
