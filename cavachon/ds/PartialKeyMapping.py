@@ -34,7 +34,7 @@ class PartialKeyMapping(MutableMapping):
     self.update(*args, **kwargs)
   
   def __repr__(self) -> str:
-    return f'{self.__class__.__name__}({{{self.nodes}}})'
+    return f'{self.__class__.__name__}({self.nodes})'
   
   def __setitem__(self, __k: Hashable, __v: Any) -> None:
     if isinstance(__k, str):
