@@ -1,7 +1,10 @@
 from __future__ import annotations
+from types import ClassMethodDescriptorType
+
+from importlib_metadata import Pair
 from cavachon.ds.KeyNode import PartialKeyNode, FullKeyNode, KeyNode
 from collections.abc import MutableMapping, Iterator
-from typing import Any, Dict, Hashable
+from typing import Any, Dict, Iterable, Hashable, Mapping
 
 class PartialKeyMappingIterator(Iterator):
   def __init__(self, mapping: PartialKeyMapping):
@@ -121,3 +124,25 @@ class PartialKeyMapping(MutableMapping):
 
   def __len__(self) -> int:
     return self.n
+
+  @classmethod
+  def from_dict(cls, x) -> PartialKeyMapping:
+    return cls(PartialKeyMapping.dfs_nested_dict(x))
+
+  @staticmethod
+  def dfs_nested_dict(x, parent_key: Hashable = tuple()) -> Dict[Hashable, Any]:
+    if isinstance(parent_key, str):
+      parent_key = (parent_key, )
+
+    result = dict()
+    for __k, __v in x.items():
+      if isinstance(__k, str):
+        key = tuple(parent_key) + (__k, )
+      else:
+        key = tuple(parent_key) + __k
+      if issubclass(type(__v), Mapping):
+        result.update(PartialKeyMapping.dfs_nested_dict(__v, key))
+      else:
+        result.update({key: __v})
+    
+    return result
