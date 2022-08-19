@@ -1,12 +1,11 @@
-from cavachon.modifier.batch.BatchModifier import BatchModifier
-from typing import Dict
+from typing import Any, MutableMapping
 
 import tensorflow as tf
 import warnings
 
-class Binarize(BatchModifier):
+class Binarize(tf.keras.layers.Layer):
 
-  def __init__(self, threshold: float = 1.0, *args, **kwargs):
+  def __init__(self, key: Any, threshold: float = 1.0, *args, **kwargs):
     super().__init__(*args, **kwargs)
     if threshold > 1.0 or threshold < 0.0:
       message = ''.join((
@@ -16,10 +15,11 @@ class Binarize(BatchModifier):
       warnings.warn(message, RuntimeWarning)
       threshold = 1.0
     self.threshold = threshold
+    self.key = key
     
-  def process(self, batch: Dict[str, tf.Tensor], selector: str) -> tf.Tensor:
+  def call(self, inputs: MutableMapping[Any, tf.Tensor]) -> MutableMapping[Any, tf.Tensor]:
     is_sparse = False
-    tensor = batch.get(selector)
+    tensor = inputs.get(self.key)
     if isinstance(tensor, tf.SparseTensor):
       tensor = tf.sparse.to_dense(tensor)
       is_sparse = True
@@ -27,4 +27,6 @@ class Binarize(BatchModifier):
     tensor = tf.where(tensor < self.threshold, tf.zeros_like(tensor), tensor)
     if is_sparse:
       tensor = tf.sparse.from_dense(tensor)
-    return tensor
+
+    inputs[self.key] = tensor
+    return inputs

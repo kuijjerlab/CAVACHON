@@ -1,4 +1,4 @@
-from cavachon.modifier.adata.AnnDataFilter import AnnDataFilter
+from cavachon.filter.AnnDataFilter import AnnDataFilter
 from cavachon.utils.AnnDataUtils import AnnDataUtils
 from cavachon.utils.GeneralUtils import GeneralUtils
 
@@ -14,7 +14,7 @@ class FilterQC(AnnDataFilter):
   def __init__(self, name, *args, **kwargs):
     super().__init__(name)
 
-  def execute(self, adata: anndata.AnnData) -> anndata.AnnData:    
+  def __call__(self, adata: anndata.AnnData) -> anndata.AnnData:    
     n_obs = adata.obs.shape[0]
     selected = pd.Series(
         GeneralUtils.duplicate_obj_to_list(True, n_obs),
