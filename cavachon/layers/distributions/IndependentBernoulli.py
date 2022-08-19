@@ -1,44 +1,46 @@
-from cavachon.layers.distributions.DistributionLayer import DistributionLayer
-from typing import Dict
-
-import tensorflow as tf
+#%%
 import tensorflow_probability as tfp
 
-class IndependentBernoulli(DistributionLayer, tf.keras.layers.Layer):
-  def __init__(
-        self,
-        name: str,
-        n_dims: int):
-    super().__init__(name=name)
-    self.n_dims: int = n_dims
-    return
+class IndependentBernoulli(tfp.layers.DistributionLambda):
+  def __init__(self, **kwargs):
+    self.make_distribution_fn=lambda x: tfp.distributions.Bernoulli(logits=x.get('pi_logit'))
+    convert_to_tensor_fn=lambda x: x.sample()
+    super().__init__(
+        make_distribution_fn=self.make_distribution_fn,
+        convert_to_tensor_fn=convert_to_tensor_fn,
+        **kwargs)
 
-  def build(self, input_shape):
-    self.pi_logit_parameterizer = self.add_weight(
-        f'{self.name}/pi_logit',
-        shape=(int(input_shape[-1]), self.n_dims))
-    return
-
-  def call(self, inputs) -> Dict[str, tf.Tensor]:
-    result = dict()
-    result.setdefault(f'pi_logit', self.pi_logit_parameterizer(inputs))
-    return result
-
-  @staticmethod
-  def dist(pi_logit) -> tfp.distributions.Distribuion:
-    # batch_shape: pi_logit.shape
-    # event_shape: ()
-    return tfp.distributions.Bernoulli(logits=pi_logit)
-
-  @staticmethod
-  def prob(pi_logit, value, name='prob', **kwargs) -> tf.Tensor:
-    dist = IndependentBernoulli.dist(pi_logit)
-    return dist.prob(value, name, **kwargs)
-
-  @staticmethod
-  def sample(pi_logit, training=False, seed=None, name='sample', **kwargs) -> tf.Tensor:
-    dist = IndependentBernoulli.dist(pi_logit)
-    if training:
-      return dist.sample((), seed, name, **kwargs)
+  def call(self, inputs, training=True):
+    if not training:
+      return self.make_distribution_fn(inputs).sample(), _
     else:
-      return tf.where(pi_logit > 0, tf.ones_like(pi_logit), tf.zeros_like(pi_logit))
+      return self.make_distribution_fn(inputs).sample(), _
+
+# %%
+import tensorflow as tf
+x = IndependentBernoulli()
+#x(tf.random.normal((1, 5)))
+x({'pi_logit': tf.random.normal((1, 5))})
+
+# %%
+class TestLoss(tf.keras.losses.Loss):
+  def __init__(self):
+    super().__init__()
+
+  def call(self, y_true, y_pred):
+    return tf.reduce_mean(y_pred, axis=1)
+
+tmploss = TestLoss()
+model = tf.keras.Sequential([
+  tf.keras.layers.Dense(1, activation='relu')
+])
+# %%
+model.compile(
+  loss=tmploss
+)
+# %%
+X = tf.random.normal((50, 20))
+y = tf.random.normal((50, 1))
+#ds = tf.data.Dataset.from_tensor_slices([X, y])
+model.fit(x=X, y=y)
+# %%
