@@ -1,42 +1,14 @@
-
-from cavachon.losses.CustomLoss import CustomLoss
-from typing import Dict
+from cavachon.distributions.Distribution import Distribution
 
 import tensorflow as tf
 
-class NegativeLogDataLikelihood(CustomLoss, tf.keras.losses.Loss):
-  def __init__(self, module, modality_ordered_map, name='negative_log_data_likelihood', **kwargs):
-    kwargs.setdefault('name', name)
-    super().__init__(**kwargs)
-    self.module = module
-    self.modality_ordered_map = modality_ordered_map
-    self.cache: tf.Tensor = tf.zeros((1, ))
+class NegativeLogDataLikelihood(tf.keras.losses.Loss):
+  def __init__(self, dist_x_z_class: Distribution, name: str = 'NegativeLogDataLikelihood',**kwargs):
+    super().__init__(name=name, **kwargs)
+    self.dist_x_z_class = dist_x_z_class
 
-  def call(self, y_true, y_pred, sample_weight=None):
-    x_parameters = y_pred.get('x_parameters')
-    
-    negative_log_data_likelihood = None
+  def call(self, y_true, y_pred):
+    dist_x_z = self.dist_x_z_class.from_parameterizer_output(y_pred)
+    logpx_z = tf.reduce_sum(dist_x_z.log_prob(y_true), axis=-1)
 
-    for modality_name, modality in self.modality_ordered_map.data.items():
-      # Based on eq (C.48) from Falck et al., 2021. Here, we use y to denote c_j
-      # logpx_z + 𝚺_j𝚺_y[py_z(logpz_y + logpy)] - 𝚺_j[logqz_x] - 𝚺_j𝚺_y[py_z(logpc_z)] 
-      # logpx_z + 𝚺_j𝚺_y[py_z(logpz_y)] + 𝚺_j𝚺_y[py_z(logpy)] - 𝚺_j[logqz_x] - 𝚺_j𝚺_y[py_z(logpy_z)] 
-      # term (a): logpx_z
-      for postprocess_step in self.postprocess_steps.get(modality_name, []):
-        y_true = postprocess_step.execute(y_true)
-      x = tf.sparse.to_dense(y_true.get(f'{modality_name}:matrix'))
-      dist_x_z = modality.dist_cls(**x_parameters.get(modality_name))
-      logpx_z = tf.reduce_sum(dist_x_z.log_prob(x), axis=-1)
-      
-      if negative_log_data_likelihood is None:
-        negative_log_data_likelihood = -logpx_z
-      else:
-        negative_log_data_likelihood -= logpx_z
-
-    self.cache = tf.reduce_mean(negative_log_data_likelihood)   
-
-    return negative_log_data_likelihood
-
-  def update_module(self, module):
-    self.module = module
-    return
+    return -logpx_z

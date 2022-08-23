@@ -17,9 +17,9 @@ class MixtureMultivariateNormalDiag(Distribution, tfp.distributions.MixtureSameF
       **kwargs):
     if isinstance(params, tf.Tensor):
       # shape: (batch, n_components)
-      logits = params[:, :, 0]
+      logits = params[..., 0]
       # shape: (batch, n_components, event_dims * 2)
-      components_params = params[:, :, 1:]
+      components_params = params[..., 1:]
       # batch_shape: (batch, n_components), event_shape: (event_dims, )
       components_distribution = MultivariateNormalDiag.from_parameterizer_output(components_params)
     elif isinstance(params, Mapping):
