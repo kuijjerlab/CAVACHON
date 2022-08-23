@@ -15,7 +15,7 @@ class LogTransform(tf.keras.layers.Layer):
     if isinstance(tensor, tf.SparseTensor):
       tensor = tf.sparse.to_dense(tensor)
       is_sparse = True
-    target = tf.math.log(target + self.pseudocount)
+    tensor = tf.math.log(tensor + self.pseudocount)
     if is_sparse:
       tensor = tf.sparse.from_dense(tensor)
 

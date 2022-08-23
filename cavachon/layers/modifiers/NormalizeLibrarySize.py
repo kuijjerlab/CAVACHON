@@ -4,7 +4,7 @@ from typing import Iterable, MutableMapping
 import tensorflow as tf
 
 class NormalizeLibrarySize(tf.keras.layers.Layer):
-  """TODO"""
+  
   def __init__(self, key: Iterable, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.key = key
@@ -17,7 +17,7 @@ class NormalizeLibrarySize(tf.keras.layers.Layer):
     if isinstance(tensor, tf.SparseTensor):
       tensor = tf.sparse.to_dense(tensor)
       is_sparse = True
-    libsize = tf.reduce_sum(tensor, axis=-1)
+    libsize = tf.expand_dims(tf.reduce_sum(tensor, axis=-1), -1)
     tensor = tensor / libsize
     if is_sparse:
       tensor = tf.sparse.from_dense(tensor)

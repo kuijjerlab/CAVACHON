@@ -24,9 +24,12 @@ class MultivariateNormalDiag(tf.keras.layers.Layer):
         shape=(1, self.event_dims))
     return
 
-  def call(self, inputs: tf.Tensor) -> tf.Tensor:
+  def call(self, inputs: tf.Tensor, log_scale: tf.Tensor = None) -> tf.Tensor:
+    mean = tf.matmul(inputs, self.loc_weight) + self.loc_bias
+    if log_scale is not None:
+      mean = tf.math.exp(mean * log_scale)
     result = (
-        tf.matmul(inputs, self.loc_weight) + self.loc_bias,
+        mean,
         tf.math.softplus(tf.matmul(inputs, self.scale_diag_weight) + self.scale_diag_bias)
     )
     # shape: (batch, event_dims * 2)
