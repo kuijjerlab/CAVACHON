@@ -15,14 +15,17 @@ class IndependentZeroInflatedNegativeBinomial(Distribution, tfp.distributions.Mi
       params: Union[tf.Tensor, Mapping[str, tf.Tensor]],
       **kwargs):
     if isinstance(params, tf.Tensor):
-      probs, mean, dispersion = tf.split(params, 3, axis=-1)
-      probs = tf.stack([probs, 1 - probs], axis=-1)
+      logits, mean, dispersion = tf.split(params, 3, axis=-1)
+
     elif isinstance(params, Mapping):
-      probs = params.get('probs')
+      logits = params.get('logits')
       mean = params.get('mean')
       dispersion = params.get('dispersion')
-      probs = tf.stack([probs, 1 - probs], axis=-1)
+    
+    probs = tf.math.sigmoid(logits)
+    probs = tf.stack([probs, 1 - probs], axis=-1)
 
+    # batch_shape: (batch, ), event_shape: (event_dims, )
     return cls(
         cat=tfp.distributions.Categorical(probs=probs),
         components=(

@@ -18,13 +18,14 @@ class IndependentBernoulli(Distribution, tfp.distributions.Independent):
       params: Union[tf.Tensor, Mapping[str, tf.Tensor]],
       **kwargs):     
     if isinstance(params, tf.Tensor):
-      probs = params
+      logits = params
     elif isinstance(params, Mapping):
-      probs = params.get('probs')
+      logits = params.get('logits')
     
-    distribution = tfp.distributions.Bernoulli(probs=probs)
+    distribution = tfp.distributions.Bernoulli(logits=logits)
     reinterpreted_batch_ndims = tf.size(distribution.batch_shape_tensor()) - 1
-
+    
+    # batch_shape: (batch, ), event_shape: (event_dims, )
     return cls(
         distribution=distribution,
         reinterpreted_batch_ndims=reinterpreted_batch_ndims,

@@ -20,5 +20,6 @@ class MultivariateNormalDiag(Distribution, tfp.distributions.MultivariateNormalD
       loc = params.get('loc')
       scale_diag = params.get('scale_diag')
 
+    # batch_shape: (batch, ), event_shape: (event_dims, )
     return cls(loc=loc, scale_diag=scale_diag, **kwargs)
 
