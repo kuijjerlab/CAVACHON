@@ -5,12 +5,19 @@ import tensorflow as tf
 
 from cavachon.utils.DataFrameUtils import DataFrameUtils
 from sklearn.preprocessing import LabelEncoder
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 class TensorUtils:
   """TensorUtils
   Utility functions for Tensorflow Tensor
   """
+  @staticmethod
+  def max_n_neurons(layers: Iterable[tf.keras.layers.Layer]):
+    current_max = 0
+    for layer in layers:
+      if isinstance(layer, tf.keras.layers.Dense) and current_max < layer.units:
+        current_max = layer.units
+    return current_max
 
   @staticmethod
   def remove_nan_gradients(gradients: List[tf.Tensor]) -> List[tf.Tensor]:

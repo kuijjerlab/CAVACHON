@@ -13,10 +13,6 @@ class Modality(anndata.AnnData):
       X: Union[np.ndarray, scipy.sparse.spmatrix, pd.DataFrame, tf.Tensor, anndata.AnnData, None],     
       name: str,
       modality_type: str,
-      order: int,
-      n_layers: int,
-      n_clusters: int,
-      n_latent_dims: int,
       batch_effect_colnames: Optional[Collection[str]] = None,
       *args,
       **kwargs):
@@ -29,10 +25,6 @@ class Modality(anndata.AnnData):
     cavachon_config = dict((
       ('name', name),
       ('modality_type', modality_type),
-      ('order', order),
-      ('n_layers', n_layers),
-      ('n_clusters', n_clusters),
-      ('n_latent_dims', n_latent_dims),
       ('batch_effect_colnames', batch_effect_colnames)
     ))
     cavachon_uns = OrderedDict((
