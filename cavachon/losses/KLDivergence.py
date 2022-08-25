@@ -15,9 +15,9 @@ class KLDivergence(tf.keras.losses.Loss):
     # can be written as:
     #   (a)   +          (b)          +          (c)        +      (d)     +          (e)
     # or
-    # LogDataLikelihood - KLDivergence (maximizing the ELBO)
+    # LogDataLikelihood - NegativeKLDivergence (maximizing the ELBO)
     # or 
-    # -LogDataLikelihood + KLDivergence (minimizing the loss)
+    # NegativeLogDataLikelihood + KLDivergence (minimizing the loss)
 
     event_dims = y_pred.shape[1] // 3
     z = y_pred[..., 0:event_dims]
@@ -30,7 +30,7 @@ class KLDivergence(tf.keras.losses.Loss):
     # parameterizers of MixtureMultivariateNormalDiag. In MFCVAE, this value should be one (one 
     # set of priors with n_componetns for each layer) 
     # batch_shape: (1, n_components), event_shape: (event_dims, )
-    dist_z_y = MultivariateNormalDiag.from_parameterizer_output(y_true)
+    dist_z_y = MultivariateNormalDiag.from_parameterizer_output(y_true[..., 1:])
     # batch_shape: (1, ), event_shape: (event_dims, )
     dist_z = MixtureMultivariateNormalDiag.from_parameterizer_output(y_true)
 
@@ -43,10 +43,11 @@ class KLDivergence(tf.keras.losses.Loss):
     # shape: (batch, 1)
     logpz = tf.expand_dims(dist_z.log_prob(z), -1)
 
-    #py_z = tf.math.softmax(logpz_y + logpy)
-    #logpy_z = tf.math.log(py_z + 1e-7)      
-    logpy_z = logpz_y + logpy - logpz
-    py_z = tf.exp(logpy_z)
+    # shape: (batch, n_components)
+    py_z = tf.math.softmax(logpz_y + logpy)
+    logpy_z = tf.math.log(py_z + 1e-7)      
+    #logpy_z = logpz_y + logpy - logpz
+    #py_z = tf.exp(logpy_z)
     
     # term (b): 𝚺_j𝚺_y[py_z(logpz_y)]
     py_z_logpz_y = tf.reduce_sum(py_z * logpz_y, axis=-1)
@@ -60,6 +61,6 @@ class KLDivergence(tf.keras.losses.Loss):
     # term (e): 𝚺_j𝚺_y[py_z(logpy_z)]
     py_z_logpy_z = tf.reduce_sum(py_z * logpy_z, axis=-1)
 
-    kl_divergence = -py_z_logpz_y -py_z_logpy + py_z_logpy_z + logqz_x
-
+    kl_divergence = -py_z_logpz_y - py_z_logpy + py_z_logpy_z + logqz_x
+    kl_divergence = tf.where(kl_divergence < 0, tf.zeros_like(kl_divergence), kl_divergence)
     return kl_divergence
