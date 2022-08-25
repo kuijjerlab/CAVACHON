@@ -13,7 +13,7 @@ class ConditionalModule(tf.keras.Model):
       self,
       order: int,
       modality_names: Collection[str] = [],
-      dist_parameterizers: List[Union[str, str]] = dict(), 
+      distribution_names: List[Union[str, str]] = dict(), 
       n_vars: Mapping[str, int] = dict(),
       n_latent_dims: Mapping[str, int] = dict(),     
       n_priors: Mapping[str, int] = dict(),          
@@ -38,7 +38,7 @@ class ConditionalModule(tf.keras.Model):
     self.n_latent_dims: Mapping[str, int] = n_latent_dims
     self.n_priors: Mapping[str, int] = n_priors
     self.conditional_module_name: Optional[Any] = conditional_module_name
-    self.dist_parameterizers: Mapping[str, str] = dist_parameterizers
+    self.distribution_names: Mapping[str, str] = distribution_names
   
     self.setup_and_validate_parameters()
     self.setup_encoder()
@@ -51,24 +51,24 @@ class ConditionalModule(tf.keras.Model):
       default_n_encoder_layers: int = 3,
       default_n_decoder_layers: int = 3) -> None:
     
-    for encoder_key in self.latent_names:
-      self.n_latent_dims.setdefault(encoder_key, default_n_latent_dims)
-      self.n_priors.setdefault(encoder_key, default_n_priors)
-      self.n_decoder_layers.setdefault(encoder_key, default_n_encoder_layers)
+    for latent_name in self.latent_names:
+      self.n_latent_dims.setdefault(latent_name, default_n_latent_dims)
+      self.n_priors.setdefault(latent_name, default_n_priors)
+      self.n_encoder_layers.setdefault(latent_name, default_n_encoder_layers)
 
-    for decoder_key in self.modality_names:
-      self.n_decoder_layers.setdefault(decoder_key, default_n_decoder_layers)
+    for modality_name in self.modality_names:
+      self.n_decoder_layers.setdefault(modality_name, default_n_decoder_layers)
 
-      if decoder_key not in self.dist_parameterizers:
+      if modality_name not in self.distribution_names:
         message = ''.join((
-            f"'{decoder_key}' not in distribution_parameterizers ",
+            f"'{modality_name}' not in distribution_parameterizers ",
             f"({self.__class__.__name__}.{self.name})"
         ))
         raise KeyError(message)
 
-      if decoder_key not in self.n_vars:
+      if modality_name not in self.n_vars:
         message = ''.join((
-            f"'{decoder_key}' not in n_vars ",
+            f"'{modality_name}' not in n_vars ",
             f"({self.__class__.__name__}.{self.name})"
         ))
         raise KeyError(message)
@@ -86,7 +86,7 @@ class ConditionalModule(tf.keras.Model):
     for latent_name in self.latent_names:
       n_latent_dims = self.n_latent_dims.get(latent_name)
       n_priors = self.n_priors.get(latent_name)
-      n_encoder_layers = self.n_decoder_layers.get(latent_name)
+      n_encoder_layers = self.n_encoder_layers.get(latent_name)
       
       name_prefix = f"{self.name}/{latent_name}/"
 
@@ -119,7 +119,7 @@ class ConditionalModule(tf.keras.Model):
     self.decoder_backbone_networks: Dict[str, tf.keras.Model] = dict()
     self.x_parameterizers: Dict[str, tf.keras.Model] = dict()
     for decoder_name in self.modality_names:
-      distribution_parameterizer = self.dist_parameterizers.get(decoder_name)
+      distribution_name = self.distribution_names.get(decoder_name)
       n_vars = self.n_vars.get(decoder_name)
       n_decoder_layers = self.n_decoder_layers.get(decoder_name)
 
@@ -130,10 +130,9 @@ class ConditionalModule(tf.keras.Model):
           reverse=True,
           name=f"{name_prefix}/backbone_network")
       
-      if isinstance(distribution_parameterizer, str):
-        distribution_parameterizer = ReflectionHandler.get_class_by_name(
-            distribution_parameterizer,
-            'layers/parameterizers')
+      distribution_parameterizer = ReflectionHandler.get_class_by_name(
+          distribution_name,
+          'layers/parameterizers')
       
       x_parameterizer = distribution_parameterizer(
           n_vars,

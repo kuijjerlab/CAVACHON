@@ -10,25 +10,25 @@ class Independent(ConditionalModule):
       self,
       order: int,
       modality_names: Collection[str] = [],
-      dist_parameterizers: List[Union[str, str]] = dict(), 
+      distribution_names: List[Union[str, str]] = dict(), 
       n_vars: Mapping[str, int] = dict(),
       n_latent_dims: Mapping[str, int] = dict(),
       n_priors: Mapping[str, int] = dict(),           
       n_encoder_layers: Mapping[str, int] = dict(),  
       n_decoder_layers: Mapping[str, int] = dict(),   
-      conditional_module_name: Optional[str] = None,               
+      conditional_module_name: Optional[str] = None,      
       name: str = 'IndependentModule'):
 
     super().__init__(
       order=order,
       modality_names=modality_names,
-      dist_parameterizers=dist_parameterizers,
+      distribution_names=distribution_names,
       n_vars=n_vars,
       n_latent_dims=n_latent_dims,
       n_priors=n_priors, 
       n_encoder_layers=n_encoder_layers,
       n_decoder_layers=n_decoder_layers, 
-      conditional_module_name=conditional_module_name,   
+      conditional_module_name=conditional_module_name,
       name=name
     )
 
