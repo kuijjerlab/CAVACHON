@@ -12,9 +12,7 @@ class MultivariateNormalDiag(tf.keras.Model):
     self.key = key
     self.modifiers = [
       ToDense(key),
-      DuplicateMatrix(key),
-      LogTransform(key),
-      NormalizeLibrarySize(key),
+      DuplicateMatrix(key)
     ]
   
   def call(self, inputs, training=None, mask=None):
