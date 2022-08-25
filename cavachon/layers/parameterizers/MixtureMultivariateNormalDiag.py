@@ -40,7 +40,7 @@ class MixtureMultivariateNormalDiag(tf.keras.layers.Layer):
 
     return
 
-  def call(self, inputs: tf.Tensor) -> tf.Tensor:
+  def call(self, inputs: tf.Tensor, **kwargs) -> tf.Tensor:
     # shape: (batch, n_components, 1)
     logits = tf.expand_dims(tf.matmul(inputs, self.logits_weight) + self.logits_bias, -1)
     means = []

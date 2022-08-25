@@ -31,7 +31,7 @@ class IndependentZeroInflatedNegativeBinomial(Distribution, tf.keras.layers.Laye
         shape=(1, self.event_dims))
     return
 
-  def call(self, inputs: tf.Tensor, log_scale: tf.Tensor = None) -> tf.Tensor:
+  def call(self, inputs: tf.Tensor, log_scale: tf.Tensor = None, **kwargs) -> tf.Tensor:
     mean = tf.matmul(inputs, self.mean_weight) + self.mean_bias
     if log_scale is not None:
       mean = tf.math.exp(mean * log_scale)
