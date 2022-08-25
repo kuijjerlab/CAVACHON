@@ -4,7 +4,8 @@ from cavachon.utils.ReflectionHandler import ReflectionHandler
 from cavachon.utils.TensorUtils import TensorUtils
 from cavachon.layers.parameterizers.MixtureMultivariateNormalDiag import MixtureMultivariateNormalDiag as MixtureMultivariateNormalDiagParameterizer
 from cavachon.layers.parameterizers.MultivariateNormalDiag import MultivariateNormalDiag as MultivariateNormalDiagParameterizer
-from typing import Any, Collection, Dict, Union, List, Mapping, MutableMapping, Optional
+from collections import OrderedDict
+from typing import Any, Collection, Dict, Union, List, Mapping, MutableMapping, Optional, Tuple
 
 import tensorflow as tf
 
@@ -40,9 +41,23 @@ class ConditionalModule(tf.keras.Model):
     self.conditional_module_name: Optional[Any] = conditional_module_name
     self.distribution_names: Mapping[str, str] = distribution_names
   
+    self.config = {
+      'order': order,
+      'modality_names': modality_names,
+      'distribution_names': distribution_names,
+      'n_vars': n_vars,
+      'n_latent_dims': n_latent_dims,
+      'n_priors': n_priors, 
+      'n_encoder_layers': n_encoder_layers,
+      'n_decoder_layers': n_decoder_layers, 
+      'conditional_module_name': conditional_module_name,
+      'name': name
+    }
+
     self.setup_and_validate_parameters()
     self.setup_encoder()
     self.setup_decoder()
+    self.setup_elbo_estimator()
 
   def setup_and_validate_parameters(
       self,
@@ -141,6 +156,45 @@ class ConditionalModule(tf.keras.Model):
       self.decoder_backbone_networks.setdefault(decoder_name, backbone_network)
       self.x_parameterizers.setdefault(decoder_name, x_parameterizer)
 
+  def setup_elbo_estimator(
+      self,
+      kl_divergence: Union[str, tf.keras.losses.Loss] = 'KLDivergence',
+      negative_log_data_likelihood: Union[str, tf.keras.losses.Loss] = 'NegativeLogDataLikelihood') -> None:
+    self.elbo_estimators = dict()
+    order = f"{self.order:>02d}"
+    module_name = self.name
+    latent_names = self.latent_names
+    modality_names = self.modality_names
+    for latent_name in latent_names:
+      if isinstance(kl_divergence, str):
+          kl_divergence = ReflectionHandler.get_class_by_name(kl_divergence, 'losses')
+      self.elbo_estimators.setdefault(
+          (order, module_name, latent_name, 'KLDivergence'), 
+          kl_divergence(name=f"{order}/{module_name}/{latent_name}/KLDivergence"))
+    
+    for modality_name in modality_names:
+      distribution_name = self.distribution_names.get(modality_name)
+      distribution_class = ReflectionHandler.get_class_by_name(
+          distribution_name,
+          'distributions')
+      if isinstance(negative_log_data_likelihood, str):
+        negative_log_data_likelihood = ReflectionHandler.get_class_by_name(
+            negative_log_data_likelihood,
+            'losses')
+      self.elbo_estimators.setdefault(
+          (order, module_name, modality_name, 'NegativeLogDataLikelihood'),
+          negative_log_data_likelihood(
+              dist_x_z_class=distribution_class,
+              name=f"{order}/{module_name}/{modality_name}/NegativeLogDataLikelihood"))
+    return
+
+  def get_config(self):
+    return self.config
+  
+  @classmethod
+  def from_config(cls, config):
+    return cls(**config)
+
   def call(
       self,
       inputs: MutableMapping[Any, tf.Tensor],
@@ -194,7 +248,11 @@ class ConditionalModule(tf.keras.Model):
       z_parameter = z_parameters.get(
           (f"{self.order:02d}", self.name, latent_name, 'z_parameters'))
       # eq D.63 (Falck et al., 2021)
-      z = MultivariateNormalDiagDistribution.from_parameterizer_output(z_parameter).sample()
+      if training:
+        z = MultivariateNormalDiagDistribution.from_parameterizer_output(z_parameter).sample()
+      else:
+        z = MultivariateNormalDiagDistribution.from_parameterizer_output(z_parameter).mean()
+      
       if z_hat_conditional is None:
         # eq D.64 (Falck et al., 2021)
         z_hat = self.r_networks.get(latent_name)(z, training=training)
@@ -234,8 +292,57 @@ class ConditionalModule(tf.keras.Model):
       backbone_network = self.decoder_backbone_networks.get(decoder_name)
       x_parameterizer = self.x_parameterizers.get(decoder_name)
       z_decoded = backbone_network(decoder_input, training=training)
+      
+      log_scale = inputs.get((decoder_name, Constants.TENSOR_NAME_LIBSIZE), None)
+
       x_parameters.setdefault(
           (f"{self.order:02d}", self.name, decoder_name, 'x_parameters'),\
-          x_parameterizer(z_decoded))
+          x_parameterizer(z_decoded, log_scale=log_scale))
     
     return x_parameters
+
+  def compute_elbo(
+      self, 
+      inputs: MutableMapping[Any, tf.Tensor],
+      training: bool = False,
+      mask: Optional[tf.Tensor] = None) -> Tuple[Union[float, MutableMapping[str, float]]]:
+    
+    outputs = self(inputs, training, mask)
+    results = OrderedDict()
+
+    latent_names = self.latent_names
+    modality_names = self.modality_names
+    order = f"{self.order:>02d}"
+    module_name = self.name
+    latent_names = self.latent_names
+    modality_names = self.modality_names
+    
+    elbo = 0
+    for latent_name in latent_names:
+      z_prior_parameterizer = self.z_prior_parameterizers.get(latent_name)
+      y_true = z_prior_parameterizer(tf.ones((1, 1)))
+      y_pred = ConditionalModule.prepare_kl_divergence_input(
+          outputs.get((order, module_name, latent_name, 'z')),
+          outputs.get((order, module_name, latent_name, 'z_parameters')))
+      key_kl_divergence = (order, module_name, latent_name, 'KLDivergence')
+      kl_divergence_estimator = self.elbo_estimators.get(key_kl_divergence)
+      kl_divergence = kl_divergence_estimator(y_true, y_pred)
+      results.setdefault(kl_divergence_estimator.name, kl_divergence)
+      elbo -= kl_divergence
+    
+    for modality_name in modality_names:
+      y_true = inputs.get((modality_name, Constants.TENSOR_NAME_ORIGIONAL_X))
+      y_pred = outputs.get((order, module_name, modality_name, 'x_parameters'))
+
+      key_negative_log_data_likelihood = (order, module_name, latent_name, 'NegativeLogDataLikelihood')
+      negative_log_data_likelihood_estimator = self.elbo_estimators.get(
+          key_negative_log_data_likelihood)
+      negative_log_data_likelihood = negative_log_data_likelihood_estimator(y_true, y_pred)
+      results.setdefault(negative_log_data_likelihood_estimator.name, negative_log_data_likelihood)
+      elbo -= negative_log_data_likelihood
+    
+    return elbo, results
+
+  @staticmethod
+  def prepare_kl_divergence_input(z: tf.Tensor, z_parameters: tf.Tensor) -> tf.Tensor:
+    return tf.concat([z, z_parameters], axis=-1)
