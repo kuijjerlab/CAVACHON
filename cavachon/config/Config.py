@@ -1,4 +1,3 @@
-import networkx as nx
 import os
 from cavachon.environment.Constants import Constants
 from cavachon.io.FileReader import FileReader
@@ -261,6 +260,7 @@ class Config:
     for i, component_config in enumerate(component_config_list):
       # Check required field
       component_name = component_config.get('name', f"Component/{i:02d}")
+      component_name = GeneralUtils.tensorflow_compatible_str(component_name)
       self.are_all_fields_in_mapping(
           Constants.CONFIG_FIELD_MODEL_COMPONENT_REQUIRED,
           component_config,
@@ -270,6 +270,7 @@ class Config:
       # Set default values for conditioend_on, n_encoder_layers, n_latent_dims and n_priors for
       # each component
       component_conditioned_on = component_config.get('conditioned_on', [])
+      component_conditioned_on = [GeneralUtils.tensorflow_compatible_str(x) for x in component_conditioned_on]
       component_n_encoder_layers = component_config.get(
           Constants.CONFIG_FIELD_MODEL_COMPONENT_N_ENCODER_LAYERS,
           default_n_encoder_layers)
@@ -313,52 +314,8 @@ class Config:
       }
       processed_component_config_mapping.setdefault(component_name, processed_component_config)
     
-    self.components = self.order_components(processed_component_config_mapping)
+    self.components = GeneralUtils.order_components(processed_component_config_mapping)
     self.model = {
       'name': model_name,
       'components': self.components
     }
-
-  def order_components(
-      self,
-      component_config_mapping: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    component_id_mapping = dict()
-    id_component_mapping = dict()
-    for i, (component_name, component_config) in enumerate(component_config_mapping.items()):
-      component_id_mapping.setdefault(component_name, i)
-      id_component_mapping.setdefault(i, component_config)
-
-    n_components = len(component_config_mapping)
-    component_ids = list(range(n_components))
-
-    G = nx.DiGraph()
-    for i in component_ids:
-      G.add_node(i)
-    for component_id, component_config in id_component_mapping.items():
-      conditioned_on = component_config.get('conditioned_on')
-      if conditioned_on is not None or len(conditioned_on) != 0:
-        for conditioned_on_component_name in conditioned_on:
-          conditioned_on_component_id = component_id_mapping.get(conditioned_on_component_name)
-          G.add_edge(component_id, conditioned_on_component_id)
-    
-    if not nx.is_directed_acyclic_graph(G):
-      message = ''.join((
-          f'The conditioning relationships between components form a directed cyclic graph. ',
-          f'Please check the conditioning relationships between components in the config file ',
-          f'{self.filename}.\n'))
-      raise AttributeError(message)
-    
-    component_id_ordered_list = list()
-    while len(component_id_ordered_list) != n_components:
-      for component_id in G.nodes:
-        node_successors_not_added = set()
-        for bfs_successors in nx.bfs_successors(G, component_id):
-          node, successors = bfs_successors
-          node_successors_not_added = node_successors_not_added.union(set(successors))
-        node_successors_not_added = node_successors_not_added.difference(
-            set(component_id_ordered_list))
-        if len(node_successors_not_added) == 0:
-          component_id_ordered_list.append(component_id)
-
-    components = [id_component_mapping[component_id] for component_id in component_id_ordered_list]
-    return components

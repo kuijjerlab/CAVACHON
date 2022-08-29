@@ -1,31 +1,68 @@
-from collections.abc import Mapping
-from typing import Any, List, Tuple
+from cavachon.environment.Constants import Constants
+from typing import Any, Dict, Iterable, List, Mapping, Union
+
 import copy
+import networkx as nx
+import re
 
 class GeneralUtils:
-  
+
   @staticmethod
-  def are_all_fields_in_mapping(
-      key_list: List[Any],
-      mapping: Mapping) -> Tuple[bool, List[Any]]:
-    """Check if all the keys are in the Mapping
+  def order_components(
+      component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
+    component_id_mapping = dict()
+    id_component_mapping = dict()
+    if issubclass(type(component_configs), Mapping):
+      for i, (component_name, component_config) in enumerate(component_configs.items()):
+        component_id_mapping.setdefault(component_name, i)
+        id_component_mapping.setdefault(i, component_config)
+    else:
+      for i, component_config in enumerate(component_configs):
+        component_name = component_config.get('name')
+        component_id_mapping.setdefault(component_name, i)
+        id_component_mapping.setdefault(i, component_config)
 
-    Args:
-        key_list (List[Any]): the keys to be evaluated.
-        
-        mapping (Mapping): the mapping to be evaluated.
+    n_components = len(component_configs)
+    component_ids = list(range(n_components))
 
-    Returns:
-        Tuple[bool, List[Any]]: the first element is whether the all the
-        keys are in the Mapping. The second element is a list of keys 
-        that do not exist in the Mappipng.
-    """
-    key_not_exist = []
-    for key in key_list:
-      if key not in mapping:
-        key_not_exist.append(key)
+    G = nx.DiGraph()
+    for i in component_ids:
+      G.add_node(i)
+    for component_id, component_config in id_component_mapping.items():
+      conditioned_on = component_config.get('conditioned_on')
+      if conditioned_on is not None or len(conditioned_on) != 0:
+        for conditioned_on_component_name in conditioned_on:
+          conditioned_on_component_id = component_id_mapping.get(conditioned_on_component_name)
+          G.add_edge(component_id, conditioned_on_component_id)
     
-    return len(key_not_exist) == 0, key_not_exist
+    if not nx.is_directed_acyclic_graph(G):
+      message = ''.join((
+          f'The conditioning relationships between components form a directed cyclic graph. ',
+          f'Please check the conditioning relationships between components in the config file.\n'))
+      raise AttributeError(message)
+    
+    component_id_ordered_list = list()
+    while len(component_id_ordered_list) != n_components:
+      for component_id in G.nodes:
+        node_successors_not_added = set()
+        for bfs_successors in nx.bfs_successors(G, component_id):
+          node, successors = bfs_successors
+          node_successors_not_added = node_successors_not_added.union(set(successors))
+        node_successors_not_added = node_successors_not_added.difference(
+            set(component_id_ordered_list))
+        if len(node_successors_not_added) == 0:
+          component_id_ordered_list.append(component_id)
+
+    components = [id_component_mapping[component_id] for component_id in component_id_ordered_list]
+    return components
+
+  @staticmethod
+  def tensorflow_compatible_str(string: str) -> str:
+    regex = re.match(string, Constants.TENSORFLOW_NAME_REGEX)
+    if not regex:
+      return 'T_' + re.sub(r"[^A-Za-z0-9_.\\/>-]", "_", string)
+    else:
+      return string
 
   @staticmethod
   def duplicate_obj_to_list(obj: Any, n_objs: int) -> List[Any]:
