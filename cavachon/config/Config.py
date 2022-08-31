@@ -191,10 +191,11 @@ class Config:
       self.sample.setdefault(sample_name, sample_config)    
       
       # Check each modality config in the sample
-      for sample_modality_config in sample_config.get(Constants.CONFIG_FIELD_MODALITY):
+      for i, sample_modality_config in enumerate(sample_config.get(Constants.CONFIG_FIELD_MODALITY)):
         # Check if the modality name is in the self.modality
         modality_name = sample_modality_config.get('name', '')
         modality_name = GeneralUtils.tensorflow_compatible_str(modality_name)
+        self.sample[sample_name][Constants.CONFIG_FIELD_MODALITY][i]['name'] = modality_name
         if modality_name in self.modality:
           # Put the sample names into self.modality['modality_name']
           self.modality.get(modality_name).get(Constants.CONFIG_FIELD_SAMPLE).append(sample_name)
