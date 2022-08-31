@@ -20,16 +20,29 @@ class TensorUtils:
     return current_max
 
   @staticmethod
-  def remove_nan_gradients(gradients: List[tf.Tensor]) -> List[tf.Tensor]:
+  def remove_nan_gradients(gradients: List[tf.Tensor], clip_value=0.1) -> List[tf.Tensor]:
     for i, g in enumerate(gradients):
       gradients[i] = tf.where(tf.math.is_nan(g), tf.zeros_like(g), g)
+      gradients[i] = tf.where(
+          tf.math.is_inf(gradients[i]),
+          tf.zeros_like(gradients[i]),
+          gradients[i])
+      gradients[i] = tf.where(
+          gradients[i] > clip_value,
+          clip_value * tf.ones_like(gradients[i]),
+          gradients[i])
+      gradients[i] = tf.where(
+          gradients[i] < -1 * clip_value,
+          -1 * clip_value * tf.ones_like(gradients[i]),
+          gradients[i])
+          
     return gradients
 
   @staticmethod
   def create_backbone_layers(
     n_layers: int = 3,
-    base_n_neurons: int = 64,
-    max_n_neurons: int = 512,
+    base_n_neurons: int = 128,
+    max_n_neurons: int = 1024,
     rate: int = 2,
     activation: str = 'elu',
     reverse: bool = False,
