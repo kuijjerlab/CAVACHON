@@ -5,11 +5,11 @@ import os
 import tensorflow as tf
 
 from cavachon.environment.Constants import Constants
-from cavachon.parser.ConfigParser import ConfigParser
+from cavachon.utils.ReflectionHandler import ReflectionHandler
 from cavachon.utils.TensorUtils import TensorUtils
 from collections import defaultdict
 from sklearn.preprocessing import LabelEncoder
-from typing import Dict, Iterator
+from typing import Dict, Iterator, Mapping, Optional
 
 class DataLoader:
   """DataLoader
@@ -40,7 +40,10 @@ class DataLoader:
     self.batch_effect_encoder: Dict[str, Dict[str, LabelEncoder]] = defaultdict(dict)
     self.batch_size: int = batch_size
     self.mdata: mu.MuData = mdata
-    self.dataset: tf.data.Dataset = self.create_dataset()
+    self.dataset: Optional[tf.data.Dataset] = None
+    
+    self.create_dataset()
+    self.modify_dataset()
 
     return
 
@@ -54,14 +57,19 @@ class DataLoader:
       "{modality_name}/batch_effect" (tf.Tensor)
     """
     tensor_mapping = dict()
-    for modality_name in self.mdata.mod.keys():
+    modality_names = self.mdata.mod.keys()
+    for modality_name in modality_names:
       adata = self.mdata[modality_name]
       data_tensor = TensorUtils.spmatrix_to_sparse_tensor(adata.X)
 
       # if batch_effect colname is not specified for the current modality, use zero 
       # matrix as batch effect
-      adata_config = adata.uns.get('cavachon/config', {})
-      batch_effect_colnames = adata_config.get('batch_effect_colnames', None)
+      if issubclass(type(adata.uns), Mapping):
+        adata_config = adata.uns.get('cavachon/config', {})
+        batch_effect_colnames = adata_config.get('batch_effect_colnames', None)
+      else:
+        batch_effect_colnames = None
+
       if (batch_effect_colnames is None or len(batch_effect_colnames) == 0):
         batch_effect_tensor = tf.zeros((adata.n_obs, 1))
       else:
@@ -71,13 +79,29 @@ class DataLoader:
           self.batch_effect_encoder[modality_name][colnames] = encoder
 
       tensor_mapping.setdefault(
-          f"{modality_name}/{Constants.TENSOR_NAME_X}",
+          (modality_name, Constants.TENSOR_NAME_X),
           data_tensor)
       tensor_mapping.setdefault(
-          f"{modality_name}/{Constants.TENSOR_NAME_BATCH}",
+          (modality_name, Constants.TENSOR_NAME_BATCH),
           batch_effect_tensor)
     
     self.dataset = tf.data.Dataset.from_tensor_slices(tensor_mapping)
+
+  def modify_dataset(self) -> None:
+    modality_names = self.mdata.mod.keys()
+    for modality_name in modality_names:
+      uns = self.mdata[modality_name].uns
+      if issubclass(type(uns), Mapping):
+        config = uns.get('cavachon/config', {})
+        distribution_name = config.get('distribution', '')
+        if not distribution_name:
+          break
+        modifier_class = ReflectionHandler.get_class_by_name(
+            distribution_name,
+            'dataloader/modifiers')
+        modifier = modifier_class(modality_name=modality_name)
+        self.dataset = self.dataset.map(modifier)
+
     return self.dataset
 
   def __iter__(self) -> Iterator[tf.data.Dataset]:
@@ -103,18 +127,6 @@ class DataLoader:
     mdata = mu.read(path)
     mdata.update()
     return cls(mdata)
-
-  @classmethod
-  def from_config_parser(cls, cp: ConfigParser) -> DataLoader:
-    """[DEPRECATED] Create DataLoader from a given config yaml file (config.yaml).
-
-    Args:
-      filename (str): the filename of the config yaml.
-
-    Returns:
-      DataLoader: DataLoader created from the config file.
-    """
-    return
   
   def load_dataset(self, datadir: str) -> None:
     """Load Tensorflow Dataset snapshot.
