@@ -16,7 +16,6 @@ class IndependentZeroInflatedNegativeBinomial(Distribution, tfp.distributions.Mi
       **kwargs):
     if isinstance(params, tf.Tensor):
       logits, mean, dispersion = tf.split(params, 3, axis=-1)
-
     elif isinstance(params, Mapping):
       logits = params.get('logits')
       mean = params.get('mean')
@@ -29,6 +28,10 @@ class IndependentZeroInflatedNegativeBinomial(Distribution, tfp.distributions.Mi
     return cls(
         cat=tfp.distributions.Categorical(probs=probs),
         components=(
-            tfp.distributions.Deterministic(tf.zeros_like(mean)),
-            tfp.distributions.NegativeBinomial.experimental_from_mean_dispersion(mean, dispersion)),
+            tfp.distributions.NegativeBinomial.experimental_from_mean_dispersion(
+                1e-7 * tf.ones_like(mean),
+                dispersion),
+            tfp.distributions.NegativeBinomial.experimental_from_mean_dispersion(
+                mean,
+                dispersion)),
         **kwargs)
