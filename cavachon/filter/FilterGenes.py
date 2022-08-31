@@ -6,9 +6,9 @@ import scanpy
 
 class FilterGenes(AnnDataFilter):
 
-  def __init__(self, name, args):
-    super().__init__(name, args)
+  def __init__(self, name, **kwargs):
+    super().__init__(name, **kwargs)
 
   def __call__(self, adata: anndata.AnnData) -> anndata.AnnData:
-    scanpy.pp.filter_genes(adata, *self.args, **self.kwargs)
+    scanpy.pp.filter_genes(adata, **self.kwargs)
     return adata

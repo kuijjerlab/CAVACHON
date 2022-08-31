@@ -11,8 +11,8 @@ import warnings
 
 class FilterQC(AnnDataFilter):
 
-  def __init__(self, name, *args, **kwargs):
-    super().__init__(name)
+  def __init__(self, name, **kwargs):
+    super().__init__(name, **kwargs)
 
   def __call__(self, adata: anndata.AnnData) -> anndata.AnnData:    
     n_obs = adata.obs.shape[0]
@@ -25,7 +25,7 @@ class FilterQC(AnnDataFilter):
     # scanpy.pp.calculate_qc_metrics, so we create a copy of self.args 
     # and pop filter_threshold field.
     kwargs_copy = copy.deepcopy(self.kwargs)
-    filter_criteria_list = kwargs_copy.pop('filter_criteria')
+    filter_criteria_list = kwargs_copy.pop('filter_threshold')
     
     # the index columns will be 'Modality.name:colname', the colname
     # (usually gene name) will be used to check the control variables 
@@ -61,5 +61,3 @@ class FilterQC(AnnDataFilter):
     adata = AnnDataUtils.reorder_or_filter_adata_obs(adata, obs_index)
     
     return adata
-
-#%%
