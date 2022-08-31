@@ -6,7 +6,7 @@ import tensorflow as tf
 
 class KLDivergence(tf.keras.losses.Loss):
   def __init__(self, name: str = 'KLDivergence',**kwargs):
-    super().__init__(name=name, **kwargs)
+    super().__init__(name=name, reduction=tf.keras.losses.Reduction.SUM_OVER_BATCH_SIZE, **kwargs)
 
   def call(self, y_true, y_pred):
     # Based on eq (C.48) from Falck et al., 2021. Here, we use y to denote c_j
@@ -63,4 +63,5 @@ class KLDivergence(tf.keras.losses.Loss):
 
     kl_divergence = -py_z_logpz_y - py_z_logpy + py_z_logpy_z + logqz_x
     kl_divergence = tf.where(kl_divergence < 0, tf.zeros_like(kl_divergence), kl_divergence)
+
     return kl_divergence
