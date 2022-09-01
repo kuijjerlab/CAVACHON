@@ -23,3 +23,4 @@ class IndependentBernoulli(tf.keras.layers.Layer):
   def call(self, inputs: tf.Tensor, **kwargs) -> tf.Tensor:
     # shape: (batch, event_dims)
     return tf.matmul(inputs, self.logits_weight) + self.logits_bias
+

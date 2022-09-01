@@ -28,7 +28,7 @@ class MultivariateNormalDiag(tf.keras.layers.Layer):
     mean = tf.matmul(inputs, self.loc_weight) + self.loc_bias
     result = (
         mean,
-        tf.math.softplus(tf.matmul(inputs, self.scale_diag_weight) + self.scale_diag_bias)
+        tf.math.softplus(tf.matmul(inputs, self.scale_diag_weight) + self.scale_diag_bias) + 1e-7
     )
     # shape: (batch, event_dims * 2)
     return tf.concat(result, axis=-1)

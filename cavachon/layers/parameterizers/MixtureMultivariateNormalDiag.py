@@ -54,7 +54,7 @@ class MixtureMultivariateNormalDiag(tf.keras.layers.Layer):
       means.append(
           tf.matmul(inputs, loc_weight) + loc_bias),
       scale_diag.append(
-          tf.math.softplus(tf.matmul(inputs, scale_diag_weight) + scale_diag_bias))
+          tf.math.softplus(tf.matmul(inputs, scale_diag_weight) + scale_diag_bias) + 1e-7)
 
     # shape: (batch, n_components, event_dims)
     means = tf.stack(means, axis=1)
