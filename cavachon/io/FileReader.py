@@ -9,19 +9,31 @@ import pandas as pd
 import yaml
 
 class FileReader:
+  """FileReader
+
+  Class containing multiple static methods to read the files.
+
+  """
 
   @staticmethod
   def read_multiomics_data(config: Config, modality_name: str) -> AnnData:
-    """Read (single-cell) multi-omics data for the given modality with 
-    the loaded ConfigParser.
+    """Read (single-cell) single-omics data for the given modality with 
+    the provided Config.
 
-    Args:
-        cp (ConfigParser): the loaded ConfigParser.
+    Parameters
+    ----------
+    config: Config
+       the config instance of Config which containing configurations to
+       read the single-omics data from mtx, obs and var files.
 
-        modality_name (str): the modality to read. 
+    modality_name: str
+        the name of modality to read. 
 
-    Returns:
-        AnnData: multi-omics data in AnnData format.
+    Returns
+    -------
+    anndata.AnnData
+        single-omics data in anndata.AnnData format.
+
     """
     datadir = config.datadir
     config_modality = config.modality.get(modality_name, {})
@@ -71,27 +83,36 @@ class FileReader:
       delimiter: str = '\t',
       index_col: Optional[Union[str, int]] = 0,
       **kwargs) -> pd.DataFrame:
-    """Read the table as pd.DataFrame.
+    """Read the file as pd.DataFrame.
 
-    Args:
-      filename (str): the path of the file to be read.
+    Parameters
+    ----------
+    filename: str
+        the path of the file to be read.
       
-      name (str): the header for the name (name:index_name) for the 
-      index of the DataFrame.
+    name: str
+        the header for the name (name:index_name) for the index of the 
+        DataFrame.
       
-      colnames (List[str]): the column names of the DataFrame.
+    colnames: List[str]
+        the column names of the DataFrame (will replace the original 
+        one).
       
-      delimiter (str, optional): delimiter for the file. Defaults to 
-      '\t'.
+    delimiter: str, optional
+        delimiter for the file. Defaults to '\t'.
       
-      index_col (Optional[Union[str, int]], optional): the name (or 
-      index) for the column used as index (for 
-      DataFrame.index). Defaults to 0.
+    index_col Union[str, int], optional
+        the name (or index) for the row used as index (for 
+        DataFrame.index). Defaults to 0.
 
-      **kwargs: additional arguments pass to pd.read_csv.
+    kwargs: Mapping[str, Any]
+        additional arguments pass to pd.read_csv.
 
-    Returns:
-      pd.DataFrame: table in pd.DataFrame.
+    Returns
+    -------
+    pd.DataFrame:
+        table read in pd.DataFrame format.
+  
     """
     filename = os.path.realpath(filename)
     df = pd.read_csv(filename, sep=delimiter, header=None, **kwargs)
@@ -105,13 +126,18 @@ class FileReader:
 
   @staticmethod
   def read_mtx(filename: str) -> csr_matrix:
-    """Read a given mtx file, and return the CSR matrix.
+    """Read a given mtx file, and return the CSR sparse matrix.
 
-    Args:
-      filename (str): the filename of the mtx file
+    Parameters
+    ----------
+    filename: str
+        the filename of the mtx file.
 
-    Returns:
-      csr_matrix: the content of the mtx file in CSR matrix format.
+    Returns
+    -------
+    csr_matrix:
+        the content of the mtx file in CSR matrix format.
+
     """
     filename = os.path.realpath(filename)
     matrix = mmread(filename).transpose().tocsr()
@@ -119,13 +145,18 @@ class FileReader:
 
   @staticmethod
   def read_yaml(filename: str) -> Dict[str, Any]:
-    """Read a given yaml file, and return the content.
+    """Read a given yaml file, and return the content in dictionary.
 
-    Args:
-      filename (str): the filename of the yaml file.
+    Parameters
+    ----------
+    filename: str
+        the filename of the yaml file.
 
-    Returns:
-      Dict[str, Any]: the content of the yaml file.
+    Returns
+    -------
+    Dict[str, Any]
+        the content of the yaml file.
+
     """
     content: Dict[str, Any] = dict()
     filename = os.path.realpath(filename)
