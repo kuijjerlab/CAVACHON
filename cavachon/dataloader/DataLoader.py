@@ -13,30 +13,45 @@ from typing import Dict, Iterator, Mapping, Optional
 
 class DataLoader:
   """DataLoader
-  [TODO: DEPRECATED DOCUMENTATION]
-  Data loader to create Tensorflow dataset from MuData.
 
-  Attributes:
-    batch_effect_encoder (Dict[str, LabelEncoder]): the encoders used to
-    create one-hot encoded batch effect tensor. The keys of the 
-    dictionary are formatted as "{modality}:{obs_column}". The 
-    LabelEncoder stored the mapping between categorical batch effect
-    variables and the numerical representation.
+  Data loader to create tf.data.Dataset from MuData.
 
-    dataset (tf.data.Dataset): Tensorflow Dataset created from the 
-    MuData. Can be used to train/test/validate the CAVACHON model. The 
-    field of the dataset includes "{modality}:matrix" (tf.SparseTensor),
-    "{modality}:libsize" (tf.Tensor) and "{modality:batch_effect}" 
-    (tf.Tensor)
+  Attributes
+  ----------
+  batch_effect_encoder: Dict[str, LabelEncoder]
+      the encoders used to create one-hot encoded batch effect tensor. 
+      The keys of the dictionary are formatted as 
+      `{modality}:{obs_column}`. The LabelEncoder stored the mapping 
+      between categorical batch effect variables and the numerical 
+      representation.
 
-    mdata (mu.MuData): (Single-cell) multi-omics data stored in MuData 
-    format.
- 
+  dataset: tf.data.Dataset
+      Tensorflow Dataset created from the MuData. Can be used to 
+      train/test/validate the model. The field of the dataset includes: 
+      1. (`modality`, 'matrix') (tf.SparseTensor) and 
+      2. (`modality`, 'batch_effect') (tf.Tensor)
+
+  mdata: mu.MuData
+      (single-cell) multi-omics data used to create the dataset.
+  
+  batch_size: int
+      batch size used to create Iterator of dataset.
+
   """
   def __init__(
       self,
       mdata: mu.MuData,
-      batch_size: int = 256) -> None:
+      batch_size: int = 128) -> None:
+    """Constructor for DataLoader
+
+    Parameters
+    ----------
+    mdata: mu.MuData
+        (single-cell) multi-omics data used to create the dataset.
+    
+    batch_size: int, optional
+        batch size used to create Iterator of dataset. Defaults to 128.
+    """
     self.batch_effect_encoder: Dict[str, Dict[str, LabelEncoder]] = defaultdict(dict)
     self.batch_size: int = batch_size
     self.mdata: mu.MuData = mdata
@@ -51,10 +66,12 @@ class DataLoader:
     """Create a Tensorflow Dataset based on the MuData provided in the 
     __init__ function.
 
-    Returns:
-      tf.data.Dataset: created Dataset. The field of the dataset 
-      includes "{modality_name}/matrix" (tf.SparseTensor) and 
-      "{modality_name}/batch_effect" (tf.Tensor)
+    Returns
+    -------
+    tf.data.Dataset:
+        created Dataset. The field of the dataset includes: 
+        1. (`modality`, 'matrix') (tf.SparseTensor) and 
+        2. (`modality`, 'batch_effect') (tf.Tensor)
     """
     tensor_mapping = dict()
     modality_names = self.mdata.mod.keys()
@@ -88,6 +105,9 @@ class DataLoader:
     self.dataset = tf.data.Dataset.from_tensor_slices(tensor_mapping)
 
   def modify_dataset(self) -> None:
+    """Modify the dataset based on the modifiers of distributions.
+
+    """
     modality_names = self.mdata.mod.keys()
     for modality_name in modality_names:
       uns = self.mdata[modality_name].uns
@@ -102,13 +122,26 @@ class DataLoader:
         modifier = modifier_class(modality_name=modality_name)
         self.dataset = self.dataset.map(modifier)
 
-    return self.dataset
+    return
 
   def __iter__(self) -> Iterator[tf.data.Dataset]:
+    """Iterator of DataLoader. Can be used for custom eager training.
+
+    Returns:
+    Iterator[tf.data.Dataset]:
+        iterator of self.dataset.
+
+    Yields
+    ------
+    Dict[Any, tf.Tensor]:
+        batch of data, where the field of the batched dataset includes: 
+        1. (`modality`, 'matrix') (tf.SparseTensor) and 
+        2. (`modality`, 'batch_effect') (tf.Tensor)
+    """
     return iter(self.dataset.batch(self.batch_size))
   
   @classmethod
-  def from_h5mu(cls, h5mu_path: str) -> DataLoader:
+  def from_h5mu(cls, h5mu_path: str, batch_size: int = 128) -> DataLoader:
     """Create DataLoader from h5mu file (of MultiModality or MuData). 
     Note that if provided with MuData: (1) the different modalities in 
     the MuData needs to be sorted in a way that the order of obs
@@ -117,23 +150,33 @@ class DataLoader:
     adata.uns['cavachon/config']['batch_effect_columns'] if the user 
     wish to consider batch effect while using the model. 
 
-    Args:
-      h5mu_path (str): path to the h5mu file.
+    Parameters
+    ----------
+    h5mu_path: str
+        path to the h5mu file.
 
-    Returns:
-      DataLoader: DataLoader created from h5mu file.
+
+    Returns
+    -------
+    DataLoader:
+        DataLoader created from h5mu file.
+
     """
     path = os.path.realpath(h5mu_path)
     mdata = mu.read(path)
     mdata.update()
-    return cls(mdata)
+    return cls(mdata, batch_size)
   
   def load_dataset(self, datadir: str) -> None:
-    """Load Tensorflow Dataset snapshot.
+    """Save Tensorflow Dataset from local storage.
 
-    Args:
-      datadir (str): the data directory of created Tensorflow Dataset 
-      snapshot.
+    Parameters
+    ----------
+    datadir: str
+        directory where the Tensorflow Dataset snapshot will be save.
+
+    batch_size: int, optional
+        batch size used to create Iterator of dataset. Defaults to 128.
     """
     datadir = os.path.realpath(datadir)
     self.dataset = tf.data.experimental.load(datadir)
@@ -142,9 +185,11 @@ class DataLoader:
   def save_dataset(self, datadir: str) -> None:
     """Save Tensorflow Dataset to local storage.
 
-    Args:
-      datadir (str): directory where the Tensorflow Dataset snapshot 
-      will be save.
+    Parameters
+    ----------
+    datadir: str
+        directory where the Tensorflow Dataset snapshot will be save.
+
     """
     datadir = os.path.realpath(datadir)
     os.makedirs(datadir, exist_ok=True)
