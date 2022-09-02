@@ -6,50 +6,133 @@ from collections import OrderedDict
 from typing import Any, Dict, List, Mapping
 
 class Config:
-  """ConfigParser
-  [TODO: DEPRECATED DOCUMENTATION]
-  Data structure for config.yaml.
+  """Config
 
-  Attributes:
-    config (Dict[str, Any]): all configuration.
+  Data structure for the configuration for CAVACHON.
 
-    config_io (Dict[str, str]): IO related configuration.
+  Attributes
+  ----------
+  datadir: str
+      directory to the data.
+      
+  filename: str
+      filename of the config in YAML format.
 
-    config_sample (OrderedDict[str, Any]): sample related configuration,
-    where the keys are the sample names, and the values are the 
-    configuration for the sample.
-
-    config_modality (OrderedDict[str, Any]): modality related
-    configuration, where the keys are the modality names, and the values
-    are the configuration for the modality.
-
-    datadir (str): the directory of the input data.
-
-    filename (str): the filename of the config yaml.
-  """
+  io: Dict[str, Any]
+      IO related config. Can be a nested mapping.
+    
+  sample: OrderedDict[str, Any]
+      sample related config, where the key is the name, the values 
+      includes the `name`, `description` and `modalities`. The values 
+      of `modalities` is a list of mapping, which contains `name`, 
+      `matrix`, `barcodes`, `features`, `barcodes_colnames` and 
+      `features_colnames`. 
   
+   modality: Dict[str, Any]
+      modality related config, where the key is the name, the values
+      includes the `name`, `type`, `dist`, `filter`. The values of
+      `filter` is a list of config for filtering steps, which contains 
+      `step` and additional arguments.
+
+  modality_names: List[str]
+      all used modality names.
+
+  modality_filter: Dict[str, Any]
+      modality filter steps related config, where the key is the name 
+      of the modality to filter, the value is a list of config for 
+      filtering steps, which contains `step` and additional arguments.
+
+  model: Dict[str, Any]
+      model related config, where the keys are the `name` and 
+      `components`. The values of the `components` is a list of 
+      component configs (see `components` for more detail)
+
+  training: Dict[str, Any]
+      training related config, where the keys are `optimizer` and
+      `max_epochs`. The value for `optimizer` is the config for
+      `optimizer`, which contains keys `name` and `learning_rate`
+  
+  dataset: Dict[str, int]
+      dataset related config, where the key is `batch`.
+
+  components: List[Any]
+      the list of components related config, where the keys for each 
+      component config are `name`, `conditioned_on`,  `modality_names`, 
+      `distributino_names`, `n_latent_dims`, `n_priors`, 
+      `n_encoder_layers`, `n_decoder_layers`, `n_decoder_layers`, 
+      `n_vars`, `z_hat_conditonal_dims`.
+
+  yaml: Dict[str, Any]
+      the original yaml config in dictionary format.
+
+  """
+
   def __init__(
       self,
       filename: str,
       default_data_dir: str = './',
       default_optimizer: str = 'adam',
-      default_learning_rate: float = 1e-3,
-      default_max_n_epochs: int = 150,
+      default_learning_rate: float = 5e-4,
+      default_max_n_epochs: int = 500,
       default_batch_size: int = 128,
       default_n_latent_dims: int = 5,
       default_n_encoder_layers: int = 3,
       default_n_decoder_layers: int = 3) -> None:
+    """Constructor for Config instance.
+
+    Parameters
+    ----------
+    filenames: str
+        filename of the config in YAML format.
+
+    default_data_dir: str, optional
+        default value for the data directory. Defaults to './'.
+    
+    default_optimizer: str, optional
+        default optimizer. Defaults to 'adam'.
+    
+    default_learning_rate: float, optional
+        default learning rate for optimizer. Defaults to 5e-4.
+
+    default_max_n_epochs: int, optional
+        default maximum number of epochs for training. Defaults to 500.
+
+    default_batch_size: int, optional
+        default batch size for training and predict. Defaults to 128.
+
+    default_n_latent_dims: int, optional
+        default number of latent dimensions. Defaults to 5.
+
+    default_n_encoder_layers: int, optional
+        default number of layers in the encoder backbone. Defaults to 3.
+
+    default_n_decoder_layers: int, optional
+        default number of layers in the decoder backbone. Defaults to 3.
+    
+    Raises
+    ------
+    KeyError
+        if any of the required key is not in the provided config.
+
+    See Also
+    --------
+    setup_iopath: setup the io config and datadir.
+    setup_config_modality: setup modality related config.
+    setup_training_dataset: setup training and dataset related config.
+    setup_config_model: setup model related config.
+
+    """
     self.datadir: str = ''
     self.filename = os.path.realpath(filename)
     self.yaml: Dict[str, Any] = FileReader.read_yaml(filename)
-    self.io: Dict[str, str] = dict()
+    self.io: Dict[str, Any] = dict()
     self.sample: OrderedDict[str, Any] = OrderedDict()
     self.modality: Dict[str, Any] = dict()
     self.modality_names: List[str] = list()
     self.modality_filter: Dict[str, Any] = dict()
     self.model: Dict[str, Any] = dict()
     self.training: Dict[str, Any] = dict()
-    self.components: OrderedDict[str, Any] = OrderedDict()
+    self.components: List[Any] = list()
     self.dataset: Dict[str, Any] = dict()
     
     self.setup_iopath(default_datadir=default_data_dir)
@@ -73,17 +156,33 @@ class Config:
       mapping: Mapping,
       field: str,
       subfield: str = '') -> bool:
-    """Check if all the keys are in the Mapping
+    """Check if all the required keys are in the provided mapping.
 
-    Args:
-        key_list (List[Any]): the keys to be evaluated.
-        
-        mapping (Mapping): the mapping to be evaluated.
+    Parameters
+    ----------
+    key_list: List[Any]:
+        the required list of keys.
+    
+    mapping: Mapping
+        the mapping to be evaluated.
+    
+    field: str
+        the field of config (only used for error message)
 
-    Returns:
-        Tuple[bool, List[Any]]: the first element is whether the all the
-        keys are in the Mapping. The second element is a list of keys 
-        that do not exist in the Mappipng.
+    subfield: str, optional
+        the subfield of config (only used for error message). Defaults 
+        to ''.
+
+    Returns
+    -------
+    bool
+        whether all the required keys are in the provided mapping.
+
+    Raises
+    ------
+    KeyError
+        if any of the required key is not in the provided config.
+    
     """
     keys_not_exist = []
     for key in key_list:
@@ -104,21 +203,27 @@ class Config:
     return all_required_keys_are_there
 
   def setup_iopath(self, default_datadir: str = './') -> None:
-    """Setup IO related directories"""
+    """Setup the io config and datadir.
+
+    Parameters
+    ----------
+    default_data_dir: str, optional
+        default value for the data directory. Defaults to './'.
+
+    """
     self.io = self.yaml.get(Constants.CONFIG_FIELD_IO)
     datadir = self.io.get(Constants.CONFIG_FIELD_IO_DATADIR, default_datadir)
     self.datadir = os.path.realpath(os.path.dirname(f'{datadir}/'))
     return
 
   def setup_config_modality(self) -> None:
-    """This function does the following:
-    1. Setup config for modalities, transform the list of modality 
-    config to a OrderedDict where the keys are the modality names, and 
-    the values are the configuration for the modality. The order of the
-    insertion depends on the order field in the config (in ascending
-    order)
-    2. Check all the relevant fields are in the config. Set defaults if 
-    the optional fields are not provided.
+    """Setup modality related config and modality names.
+
+    Raises
+    ------
+    KeyError
+        if any of the required key is not in the provided config.
+    
     """
     # Clear self.modality and self.modality_filter
     self.modality = dict()
@@ -157,7 +262,7 @@ class Config:
     return
 
   def setup_config_sample(self) -> None:
-    """This function does the following:
+    """Setup sample related config. This function does the following:
     1. Setup config for sample, transform the list of sample config to a 
     OrderedDict where the keys are the sample names, and the values are 
     the configuration for the sample. The order of the insertion depends 
@@ -167,9 +272,11 @@ class Config:
     3. Check all the relevant fields are in the config. Set defaults if 
     the optional fields are not provided.
 
-    Raises:
-      KeyError: raise if the configuration for the modality of any 
-      sample cannot be found in config_modality.
+    Raises
+    ------
+    KeyError
+        if any of the required key is not in the provided config.
+    
     """
     # Clear the OrderedDict of config sample
     self.sample = OrderedDict()
@@ -210,6 +317,9 @@ class Config:
             sample_modality_config,
             sample_name,
             Constants.CONFIG_FIELD_MODALITY)
+    
+    return  
+
 
   def setup_training_dataset(
       self,
@@ -217,6 +327,24 @@ class Config:
       default_learning_rate: float = 1e-3,
       default_max_n_epochs: int = 150,
       default_batch_size: int = 128) -> None:
+    """Setup training related config.
+
+    Parameters
+    ----------
+    default_optimizer: str, optional
+        default optimizer. Defaults to 'adam'.
+    
+    default_learning_rate: float, optional
+        default learning rate for optimizer. Defaults to 5e-4.
+
+    default_max_n_epochs: int, optional
+        default maximum number of epochs for training. Defaults to 500.
+
+    default_batch_size: int, optional
+        default batch size for training and predict. Defaults to 128.
+
+    """
+    # Clear the OrderedDict of training
     self.training = dict()
     self.dataset = dict()
 
@@ -244,8 +372,31 @@ class Config:
       default_n_latent_dims: int = 5,
       default_n_encoder_layers: int = 3,
       default_n_decoder_layers: int = 3) -> None:
+    """Setup model and component related config.
+
+    Parameters
+    ----------
+    default_n_latent_dims: int, optional
+        default number of latent dimensions. Defaults to 5.
+
+    default_n_encoder_layers: int, optional
+        default number of layers in the encoder backbone. Defaults to 3.
+
+    default_n_decoder_layers: int, optional
+        default number of layers in the decoder backbone. Defaults to 3.
+
+    Raises
+    ------
+    KeyError
+        if any of the required key is not in the provided config.
+
+    AttributeError
+        if the dependencies between components is not a directed 
+        acyclic graph.
+
+    """
     self.model = dict()
-    self.components = OrderedDict()
+    self.components = list()
     
     model_config = self.yaml.get(Constants.CONFIG_FIELD_MODEL, {})
     model_name = model_config.get('name', 'CAVACHON')
@@ -285,6 +436,7 @@ class Config:
       component_modality_names = list() 
       component_distribution_names = dict()
       component_n_decoder_layers = dict()
+
       # Setup modality names and decoder for the component
       for modality_config in component_modalities:
         self.are_all_fields_in_mapping(
@@ -315,6 +467,7 @@ class Config:
       }
       processed_component_config_mapping.setdefault(component_name, processed_component_config)
     
+     # Sort the components based on the BFS order
     self.components = GeneralUtils.order_components(processed_component_config_mapping)
     self.model = {
       'name': model_name,
