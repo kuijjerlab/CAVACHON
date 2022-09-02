@@ -9,6 +9,22 @@ import pandas as pd
 import tensorflow as tf
 
 class Modality(anndata.AnnData):
+  """Modality
+  
+  Data structure for (single-cell) single-omics data. Inherit from 
+  anndata.AnnData and is comptatible with scanpy and other APIs that
+  expect andata.AnnData as inputs.
+
+  Attributes
+  ----------
+  uns: Any
+      same as the unstructure annotations from anndata.AnnData, but
+      with additional config annotations specifically for CAVACHON, 
+      which is stored as a dictionary in uns['cavcachon/config']. The
+      additional information includes the 'name', 'modality_type', 
+      'distribution' and 'batch_effect_colnames' for the modality.
+  """
+
   def __init__(
       self,
       X: Union[np.ndarray, scipy.sparse.spmatrix, pd.DataFrame, tf.Tensor, anndata.AnnData, None],     
@@ -18,6 +34,33 @@ class Modality(anndata.AnnData):
       batch_effect_colnames: Optional[Collection[str]] = None,
       *args,
       **kwargs):
+    """Constructor for Modality
+
+    Parameters
+    ----------
+    X: Union[np.ndarray, scipy.sparse.spmatrix, pd.DataFrame, tf.Tensor, anndata.AnnData, None]):
+        same as the X parameter for anndata.AnnData, but support 
+        tf.Tensor as inputs (will be transformed to numpy array).
+    
+    name: str
+        the name for the modality.
+
+    modality_type: str
+        the modality type (see also Constants.SUPPORTED_MODALITY_TYPES)
+      
+    distribution_name: str, optional: 
+        distribution for the modality. Defaults to None.
+
+    batch_effect_colnames: Collection[str], optional
+        the column names in the obs DataFrame that will be treated as
+        batch effect. Defaults to None.
+    
+    args:
+        addtional parameters for initializing anndata.AnnData.
+
+    kwargs: Mapping[str, Any]
+        addtional parameters for initializing anndata.AnnData.
+    """
 
     if isinstance(X, tf.Tensor):   
       matrix = np.array(X)

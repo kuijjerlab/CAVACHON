@@ -7,12 +7,35 @@ import anndata
 import muon
 
 class MultiModality(muon.MuData):
+  """MultiModality
+  
+  Data structure for (single-cell) multi-omics data. Inherit from 
+  muon.MuData and is comptatible with muon and other APIs that expect 
+  muon.MuData as inputs. The adata in each modality will be sorted so
+  the order of the cells will be the same after initialization.
+
+  """
+  
   def __init__(
     self,
     data: Union[anndata.AnnData, Modality, MappingType[str, anndata.AnnData], muon.MuData],
     *args,
     **kwargs
   ):
+    """Constructor for MultiModality
+
+    Parameters
+    ----------
+    data: Union[anndata.AnnData, Modality, MappingType[str, anndata.AnnData], muon.MuData])
+        same as the data parameter for muon.MuData.
+
+    args:
+        addtional parameters for initializing anndata.AnnData.
+
+    kwargs: Mapping[str, Any]
+        addtional parameters for initializing anndata.AnnData.
+        
+    """
     if isinstance(data, Modality):
       modality_name = data.uns.get('cavachon/config', {}).get('name', 'modality')
       data = dict((
