@@ -5,10 +5,62 @@ from cavachon.distributions.MixtureMultivariateNormalDiag import MixtureMultivar
 import tensorflow as tf
 
 class KLDivergence(tf.keras.losses.Loss):
-  def __init__(self, name: str = 'KLDivergence',**kwargs):
+  """KLDivergence
+  
+  KLDivergence loss adapted from Falck et al., 2021. Computes:
+  logpx_z + 𝚺_j𝚺_y[py_z(logpz_y + logpy)] - 𝚺_j[logqz_x] - 
+  𝚺_j𝚺_y[py_z(logpc_z)] 
+  """
+  def __init__(self, name: str = 'kl_divergence', **kwargs):
+    """Constructor for KLDivergence
+
+    Parameters
+    ----------
+    name: str.
+        name for the tf.keras.losses.Loss (will be used when reporting
+        the loss during training_step in Component and Model).
+        Defaults to 'kl_divergence'.
+
+    kwargs: Mapping[str, Any]
+        additional parameters for tf.keras.losses.Loss
+
+    """
     super().__init__(name=name, reduction=tf.keras.losses.Reduction.SUM_OVER_BATCH_SIZE, **kwargs)
 
-  def call(self, y_true, y_pred):
+  def call(self, y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+    """Compute the KLDivergence loss
+
+    Parameters
+    ----------
+    y_true: tf.Tensor
+        The outputs of 
+        layers.parameterizers.MixtureMultivariateNormalDiag with a 
+        inputs of tf.ones((1, 1)), which outputs a tf.Tensor with a 
+        shape of (1, n_components, event_dims * 2 + 1), where:
+        1. y_true[..., 0] is the logits for mixture distribution, 
+        2. y_true[..., 1:event_dims+1] is the locs for each
+           distribution.
+        3. y_true[..., event_dims+1:] is the scale_diag for each 
+           distribution.
+        Note that this special requirement is designed to follow the 
+        API tf.keras.losses.Loss provides. Can be ignored if the
+        developers wish to use custom eager training.
+    
+    y_pred: tf.Tensor
+        The outputs of layers.parameterizers.MultivariateNormalDiag,
+        which outputs a tf.Tensor with a shape of 
+        (batch, event_dims * 2), where 
+        1. y_pred[..., 0:event_dim] is the loc.
+        2. y_pred[..., event_dim:2*event_dims] is the scale_diag.
+        Note that this special requirement is designed to follow the 
+        API tf.keras.losses.Loss provides. Can be ignored if the
+        developers wish to use custom eager training.
+
+    Returns
+    -------
+    tf.Tensor:
+        The computed KLDivergence loss
+    """
     # Based on eq (C.48) from Falck et al., 2021. Here, we use y to denote c_j
     # logpx_z + 𝚺_j𝚺_y[py_z(logpz_y + logpy)] - 𝚺_j[logqz_x] - 𝚺_j𝚺_y[py_z(logpc_z)] 
     # logpx_z + 𝚺_j𝚺_y[py_z(logpz_y)] + 𝚺_j𝚺_y[py_z(logpy)] - 𝚺_j[logqz_x] - 𝚺_j𝚺_y[py_z(logpy_z)]
