@@ -5,6 +5,20 @@ from typing import Dict, Optional
 import tensorflow as tf 
 
 class DecoderDataParameterizer(tf.keras.Model):
+  """DecoderDataParameterizer
+
+  Decoder and parameterizer for data distributions. This base module is 
+  implemented with Tensorflow sequential API.
+
+  Attributes
+  ----------
+  backbone_network: tf.keras.Model
+      backbone network for decoder.
+  
+  x_parameterizer: tf.keras.Model
+      parameterizer for data distribution.
+      
+  """
   def __init__(
       self,
       distribution_name: str,
@@ -12,6 +26,23 @@ class DecoderDataParameterizer(tf.keras.Model):
       n_layers: int = 3,
       *args,
       **kwargs):
+    """Constructor DecoderDataParameterizer
+
+    Parameters
+    ----------
+    distribution_name: str
+        distribution name for the modality to be decoded. By default,
+        this is used to automatically find the parameterizer in
+        modules.parameterizers
+
+    n_vars: int, optional:
+        number of event dimension for data distributions. Defaults to 5.
+    
+    n_layers: int, optional
+        number of layers constructed in the backbone network. Defaults 
+        to 3.
+
+    """
     super().__init__(self, *args, **kwargs)
     
     distribution_parameterizer = ReflectionHandler.get_class_by_name(
@@ -34,11 +65,30 @@ class DecoderDataParameterizer(tf.keras.Model):
         name='x_parameterizer')
 
   def call(
-    self,
-    inputs: tf.Tensor,
-    training: bool = False,
-    mask: Optional[tf.Tensor] = None) -> Dict[str, tf.Tensor]:
+      self,
+      inputs: tf.Tensor,
+      training: bool = False,
+      mask: Optional[tf.Tensor] = None) -> tf.Tensor:
+    """Forward pass for DecoderDataParameterizer.
+
+    Parameters
+    ----------
+    inputs: tf.Tensor
+        inputs Tensor for the decoder, expect a single Tensor (by 
+        defaults, the z_hat outputs by HierarchicalEncoder)
+
+    training: bool, optional
+        whether to run the network in training mode. Defaults to False.
     
+    mask: tf.Tensor, optional 
+        a mask or list of masks. Defaults to None.
+
+    Returns
+    -------
+    tf.Tensor
+        parameters for the data distributions.
+    
+    """
     result = self.backbone_network(inputs.get('input'), training=training, mask=mask)
     x_parameterizer_inputs = dict()
     x_parameterizer_inputs.setdefault('input', result)
