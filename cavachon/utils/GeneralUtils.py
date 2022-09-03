@@ -9,7 +9,27 @@ class GeneralUtils:
 
   @staticmethod
   def order_components(
-      component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
+      component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]) -> List[str, Dict[str, Any]]:
+    """Reorder the components based on the dependency. The components
+    are ordered based on the number of predecessors components.
+
+    Parameters
+    ----------
+    component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]
+        component configs (can be loaded with Config.components)
+
+    Raises
+    ------
+    AttributeError
+        if the dependencies between components is not a directed 
+        acyclic graph.
+
+    Returns
+    -------
+    List[str, Dict[str, Any]]:
+        reordered components.
+
+    """
     component_id_mapping = dict()
     id_component_mapping = dict()
     if issubclass(type(component_configs), Mapping):
@@ -58,9 +78,25 @@ class GeneralUtils:
 
   @staticmethod
   def tensorflow_compatible_str(string: str) -> str:
-    regex = re.match(string, Constants.TENSORFLOW_NAME_REGEX)
-    if not regex:
-      return 'T_' + re.sub(r"[^A-Za-z0-9_.\\/>-]", "_", string)
+    """Generate string which is compatible with Tensorflow object names.
+
+    Parameters
+    ----------
+    string: str
+        string to be processed.
+
+    Returns
+    -------
+    str:
+        string which is compatible with Tensorflow object names.
+    """
+    valid_full_regex = re.compile(Constants.TENSORFLOW_NAME_REGEX)
+    valid_start_regex = re.compile(Constants.TENSORFLOW_NAME_START_REGEX)
+    if not valid_full_regex.match(string):
+      if valid_start_regex.match(string):
+        return re.sub(r"[^A-Za-z0-9_.\\/>-]", "_", string)
+      else:
+        return 't_' + re.sub(r"[^A-Za-z0-9_.\\/>-]", "_", string)
     else:
       return string
 
@@ -68,13 +104,19 @@ class GeneralUtils:
   def duplicate_obj_to_list(obj: Any, n_objs: int) -> List[Any]:
     """Duplicate any object into a list of the same duplicated objects.
 
-    Args:
-        obj (Any): object to be duplicated.
+    Parameters
+    ----------
+    obj: Any
+        object to be duplicated.
 
-        n_objs (int): number of duplication.
+    n_objs: int
+        number of duplication.
 
-    Returns:
-        List[Any]: list of duplicated objects.
+    Returns
+    -------
+    List[Any]:
+        list of duplicated objects.
+    
     """
     res = list()
     for i in range(0, n_objs):

@@ -6,23 +6,32 @@ import warnings
 
 class AnnDataUtils:
   """AnnDataUtils
-  Utility functions for AnnData
+
+  Class containing multiple utility functions for anndata.AnnData.
+
   """
 
   @staticmethod
   def reorder_or_filter_adata_obs(
       adata: AnnData,
       obs_index: pd.Index) -> AnnData:
-    """Reorder the AnnData so teh order of obs DataFrame in teh AnnData
-    is the same as the provided one.
-    Args:
-      adata (anndata.AnnData): AnnData to be reordered (or filtered).
+    """Filter and reorder the AnnData using the obs_index so the order 
+    and index of obs DataFrame in the AnnData is the same as the 
+    provided obs_index.
+
+    Parameters
+    ----------
+    adata: anndata.AnnData
+        anndata.AnnData to be reordered (or filtered).
         
-      obs_index (pd.Index): the desired order of index for the obs 
-      DataFrame for reordering or the kept index for the obs DataFrame 
-      for filtering.
-    Returns:
-        anndata.AnnData: ordered AnnData.
+    obs_index: pd.Index
+        the desired order of index for the obs DataFrame for reordering 
+        or the kept index for the obs DataFrame for filtering.
+    
+    Returns
+    -------
+    anndata.AnnData
+        filtered and reordered AnnData.
     """
     if not isinstance(adata, AnnData):
       message = "Provided adata is not an AnnData object, do nothing."
