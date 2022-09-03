@@ -11,6 +11,20 @@ import tensorflow as tf
 import warnings
 
 class Model(tf.keras.Model):
+  """Model
+  
+  Main CAVACHON model. It consists of multiple Components and the
+  dependency between them.
+
+  Attibutes
+  ---------
+  components: List[Component]
+      list of components which makes up the model.
+
+  component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]
+      the config used to create the components in the model.
+
+  """
   def __init__(
       self,
       inputs: Mapping[Any, tf.keras.Input],
@@ -19,16 +33,72 @@ class Model(tf.keras.Model):
       component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]],
       name: str = 'model',
       **kwargs):
+    """Constuctro for Model. Should not be called directly most of the 
+    time. Please use make() to create the model.
+
+    Parameters
+    ----------
+    inputs: Mapping[Any, tf.keras.Input]): 
+        inputs for building tf.keras.Model using Tensorflow functional 
+        API. By defaults, expect to have keys ('z_hat_conditional', ),
+        (modality_name, Constants.TENSOR_NAME_X), and
+        (modality_name, Constants.LIBSIZE) (if appplicable).
+    
+    outputs: Mapping[Any, tf.keras.Input]): 
+        outputs for building tf.keras.Model using Tensorflow functional 
+        API. By defaults, the keys are 
+        (component_names, component_names, 'z'), 
+        (component_names, component_names, 'z_hat'), 
+        (component_names, component_names, 'z_parameters') 
+        and (component_names, modality_nanes, 'x_parameters').
+    
+    components: List[Component]
+      list of components which makes up the model.
+
+    component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]
+      the config used to create the components in the model.
+
+    name: str, optional:
+        Name for the tensorflow model. Defaults to 'model'.
+    
+    kwargs: Mapping[str, Any]
+        additional parameters for custom models.
+
+    """
     super().__init__(inputs=inputs, outputs=outputs, name=name)
-    self.components = components
-    self.component_configs = component_configs
+    self.components: List[Component] = components
+    self.component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]] = component_configs
 
   @classmethod
   def setup_inputs(
       cls,
       modality_names: List[str],
-      n_vars: Mapping[str, int]) -> Mapping[Any, tf.keras.Input]:
+      n_vars: Mapping[str, int],
+      **kwargs) -> Mapping[Any, tf.keras.Input]:
+    """Builder function for setting up inputs. Developers can overwrite 
+    this function to create custom Model.
 
+    Parameters
+    ----------
+    modality_names: str
+        names of the modalities used in the model. 
+    
+    n_vars: Mapping[str, int]
+        number of variables for the inputs data distribution. It should 
+        be the size of last dimensions of inputs Tensor. The keys are 
+        the modality names, and the values are the corresponding number
+        of variables.
+    
+    kwargs: Mapping[str, Any]
+        additional parameters used for custom setup_inputs()
+
+    Returns
+    -------
+    Mapping[Any, tf.keras.Input]:
+        inputs for building tf.keras.Model using Tensorflow functional 
+        API.
+
+    """
     inputs = dict()
     for modality_name in modality_names:
       modality_key = (modality_name, Constants.TENSOR_NAME_X)
@@ -45,7 +115,29 @@ class Model(tf.keras.Model):
       cls,
       component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]],
       **kwargs) -> Tuple:
+    """Builder function for setting up components. Developers can 
+    overwrite this function to create custom Model.
 
+    Parameters
+    ----------
+    component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]
+        the config used to create the components in the model.
+
+    kwargs: Mapping[str, Any]
+        additional parameters used for custom setup_components()
+
+    Returns
+    -------
+    Tuple
+        the first element is the list of created components, the second
+        element is the component configs but reordered based on the
+        number of breadth first search successors in the dependency
+        direct acyclic graph. The third element is the list of names of
+        all modalities used in the model. The last element is the 
+        Mapping of number of variables for each modality, where the 
+        keys are the modality names.
+
+    """
     component_configs = GeneralUtils.order_components(component_configs)
     components = dict()
     modality_names = set()
@@ -77,7 +169,31 @@ class Model(tf.keras.Model):
       components: List[Component],
       component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]],
       **kwargs) -> Mapping[Any, tf.Tensor]:
+    """Builder function for setting up outputs. Developers can overwrite 
+    this function to create custom Model.
+
+    Parameters
+    ----------
+    inputs: Mapping[Any, tf.keras.Input]
+        inputs created using setup_inputs()
     
+    components: List[Component]
+      components created by setup_components().
+
+    component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]
+      the config used to create the components in the model.
+
+    kwargs: Mapping[str, Any]
+        additional parameters used for custom setup_outputs()
+
+    Returns
+    -------
+    Mapping[Any, tf.Tensor]
+        outputs for building tf.keras.Model using Tensorflow functional 
+        API.
+
+    """
+
     z_hat_conditional = dict()
     outputs = dict()
     for component_config in component_configs:
@@ -109,7 +225,25 @@ class Model(tf.keras.Model):
       component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]],
       name: str = 'cavachon',
       **kwargs) -> tf.keras.Model:
+    """Make the tf.keras.Model using the functional API of Tensorflow.
 
+    Parameters
+    ----------
+    component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]
+      the config used to create the components in the model.
+
+    name: str, optional:
+        Name for the tensorflow model. Defaults to 'component'.
+
+    kwargs: Mapping[str, Any]
+        additional parameters used for the builder functions.
+
+    Returns
+    -------
+    tf.keras.Model
+        created model using Tensorflow functional API.
+
+    """
     components, component_configs, modality_names, n_vars = cls.setup_components(
         component_configs = component_configs,
         **kwargs)
@@ -134,9 +268,17 @@ class Model(tf.keras.Model):
 
   def compile(
       self,
-      optimizer: Union[str, tf.keras.optimizers.Optimizer]='rmsprop',
       **kwargs) -> None:
+    """Compile the model before training. Note that the 'metrics' will 
+    be ignored in Model due to some unexpected behaviour for Tensorflow. 
+    The 'loss' will be setup automatically if not provided.
 
+    Parameters
+    ----------
+    kwargs: Mapping[str, Any]
+        Additional parameters used to compile the model.
+
+    """
     if 'loss' not in kwargs:
       loss = dict()
       for component_config in self.component_configs:
@@ -168,9 +310,24 @@ class Model(tf.keras.Model):
       warnings.warn(message, RuntimeWarning)
       kwargs.pop('metrics')
 
-    super().compile(optimizer=optimizer, **kwargs)
+    super().compile(**kwargs)
 
-  def train_step(self, data):
+  def train_step(self, data: Mapping[Any, tf.Tensor]) -> Mapping[str, float]:
+    """Training step for one iteration. The trainable variables in the
+    Model will be trained once after calling this function.
+
+    Parameters
+    ----------
+    data: Mapping[Any, tf.Tensor]
+        input data with stucture specified with self.inputs.
+
+    Returns
+    -------
+    Mapping[str, float]
+        losses trained in the training iteration, where the keys are the
+        names of the losses.
+        
+    """
     with tf.GradientTape() as tape:
       results = self(data, training=True)
       y_true = dict()
