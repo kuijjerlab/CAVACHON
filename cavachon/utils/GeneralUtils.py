@@ -9,7 +9,7 @@ class GeneralUtils:
 
   @staticmethod
   def order_components(
-      component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]) -> List[str, Dict[str, Any]]:
+      component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]) -> List[Dict[str, Any]]:
     """Reorder the components based on the dependency. The components
     are ordered based on the number of predecessors components.
 
