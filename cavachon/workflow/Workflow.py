@@ -19,9 +19,9 @@ class Workflow():
     self.model: Optional[Model] = None
     
     optimizer_config = self.config.training.get('optimizer')
-    self.optimizer: tf.keras.Optimizer = tf.keras.optimizers.get(
-        optimizer_config.get('name', 'adam'))
-    self.optimizer.learning_rate = optimizer_config.get('learning_rate', 5e-4)
+    learning_rate = float(optimizer_config.get('learning_rate', 5e-4))
+    self.optimizer: tf.keras.optimizers.Optimizer = tf.keras.optimizers.get(
+        optimizer_config.get('name', 'adam')).__class__(learning_rate=learning_rate)
 
     return
 
