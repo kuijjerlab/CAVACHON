@@ -103,10 +103,10 @@ class IndependentZeroInflatedNegativeBinomial(Parameterizer):
     if libsize_scaling:
       mean *= inputs.get('libsize')
     if exp_transform:
-      mean = tf.where(mean > 15., 15. * tf.ones_like(mean), mean)
+      mean = tf.where(mean > 7., 7. * tf.ones_like(mean), mean)
       mean = tf.math.exp(mean) - 1.0
     
-    mean = tf.where(mean == 0, 1e-7 * tf.ones_like(mean), mean)
+    mean = tf.where(mean <= 0, 1e-7 * tf.ones_like(mean), mean)
 
     return tf.concat([logits, mean, dispersion], axis=-1)
 

@@ -78,8 +78,8 @@ class IndependentZeroInflatedNegativeBinomial(tf.keras.layers.Layer):
         3. results[..., 2*event_dims:3*event_dims] are the dispersions
 
     """
-    dispersion = tf.math.sigmoid(tf.matmul(inputs, self.dispersion_weight) + self.dispersion_bias) + 1e-7
-    dispersion = tf.where(dispersion == 0, 1e-7 * tf.ones_like(dispersion), dispersion)
+    dispersion = tf.math.sigmoid(tf.matmul(inputs, self.dispersion_weight) + self.dispersion_bias)
+    dispersion = tf.where(dispersion <= 0.1, 0.1 * tf.ones_like(dispersion), dispersion)
     result = (
         tf.matmul(inputs, self.logits_weight) + self.logits_bias,
         tf.math.softmax(tf.matmul(inputs, self.mean_weight) + self.mean_bias),
