@@ -429,7 +429,7 @@ class Config:
       component_n_latent_dims = component_config.get(
           Constants.CONFIG_FIELD_MODEL_COMPONENT_N_LATENT_DIMS,
           default_n_latent_dims)
-      component_n_priors = component_config.get(
+      component_n_latent_priors = component_config.get(
           Constants.CONFIG_FIELD_MODEL_COMPONENT_N_PRIORS,
           2 * component_n_latent_dims + 1)
       component_modalities = component_config.get(Constants.CONFIG_FIELD_MODALITY)
@@ -461,7 +461,7 @@ class Config:
           'modality_names': component_modality_names,
           'distribution_names': component_distribution_names,
           'n_latent_dims': component_n_latent_dims,
-          'n_priors': component_n_priors,
+          'n_latent_priors': component_n_latent_priors,
           'n_encoder_layers': component_n_encoder_layers,
           'n_decoder_layers': component_n_decoder_layers
       }
