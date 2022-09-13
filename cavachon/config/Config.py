@@ -28,7 +28,7 @@ class Config:
       `matrix`, `barcodes`, `features`, `barcodes_colnames` and 
       `features_colnames`. 
   
-   modality: Dict[str, Any]
+  modality: Dict[str, Any]
       modality related config, where the key is the name, the values
       includes the `name`, `type`, `dist`, `filter`. The values of
       `filter` is a list of config for filtering steps, which contains 

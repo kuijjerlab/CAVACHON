@@ -62,7 +62,8 @@ class GeneralUtils:
       raise AttributeError(message)
     
     component_id_ordered_list = list()
-    while len(component_id_ordered_list) != n_components:
+    added_component_id_set = set()
+    while len(component_id_ordered_list) < n_components:
       for component_id in G.nodes:
         node_successors_not_added = set()
         for bfs_successors in nx.bfs_successors(G, component_id):
@@ -70,8 +71,9 @@ class GeneralUtils:
           node_successors_not_added = node_successors_not_added.union(set(successors))
         node_successors_not_added = node_successors_not_added.difference(
             set(component_id_ordered_list))
-        if len(node_successors_not_added) == 0:
+        if len(node_successors_not_added) == 0 and component_id not in added_component_id_set:
           component_id_ordered_list.append(component_id)
+          added_component_id_set.add(component_id)
 
     components = [id_component_mapping[component_id] for component_id in component_id_ordered_list]
     return components
