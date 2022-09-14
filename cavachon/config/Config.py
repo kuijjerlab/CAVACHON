@@ -1,4 +1,14 @@
+from msilib.schema import Component
 import os
+from cavachon.config.ComponentConfig import ComponentConfig
+from cavachon.config.DatasetConfig import DatasetConfig
+from cavachon.config.FilterConfig import FilterConfig
+from cavachon.config.IOConfig import IOConfig
+from cavachon.config.ModalityConfig import ModalityConfig
+from cavachon.config.ModelConfig import ModelConfig
+from cavachon.config.OptimizerConfig import OptimizerConfig
+from cavachon.config.SampleConfig import SampleConfig
+from cavachon.config.TrainingConfig import TrainingConfig
 from cavachon.environment.Constants import Constants
 from cavachon.io.FileReader import FileReader
 from cavachon.utils.GeneralUtils import GeneralUtils
@@ -12,55 +22,40 @@ class Config:
 
   Attributes
   ----------
-  datadir: str
-      directory to the data.
-      
   filename: str
       filename of the config in YAML format.
 
-  io: Dict[str, Any]
-      IO related config. Can be a nested mapping.
+  io: IOConfig
+      IO related config.
     
-  sample: OrderedDict[str, Any]
-      sample related config, where the key is the name, the values 
-      includes the `name`, `description` and `modalities`. The values 
-      of `modalities` is a list of mapping, which contains `name`, 
-      `matrix`, `barcodes`, `features`, `barcodes_colnames` and 
-      `features_colnames`. 
+  sample: OrderedDict[str, SampleConfig]
+      sample related config, where the key is the sample name, the 
+      value is the corresponding SampleConfig.
   
-  modality: Dict[str, Any]
-      modality related config, where the key is the name, the values
-      includes the `name`, `type`, `dist`, `filter`. The values of
-      `filter` is a list of config for filtering steps, which contains 
-      `step` and additional arguments.
+  modality: Dict[str, ModalityConfig]
+      modality related config, where the key is the modality name, the 
+      value is the corresponding ModalityConfig.
 
   modality_names: List[str]
       all used modality names.
 
-  modality_filter: Dict[str, Any]
+  filter: Dict[str, List[FilterConfig]]
       modality filter steps related config, where the key is the name 
       of the modality to filter, the value is a list of config for 
-      filtering steps, which contains `step` and additional arguments.
+      filtering steps.
 
-  model: Dict[str, Any]
-      model related config, where the keys are the `name` and 
-      `components`. The values of the `components` is a list of 
-      component configs (see `components` for more detail)
+  model: ModelConfig
+      model related config.
 
-  training: Dict[str, Any]
-      training related config, where the keys are `optimizer` and
-      `max_epochs`. The value for `optimizer` is the config for
-      `optimizer`, which contains keys `name` and `learning_rate`
+  training: TrainingConfig
+      training related config.
   
-  dataset: Dict[str, int]
-      dataset related config, where the key is `batch`.
+  dataset: DatasetConfig
+      dataset related config.
 
-  components: List[Any]
-      the list of components related config, where the keys for each 
-      component config are `name`, `conditioned_on`,  `modality_names`, 
-      `distributino_names`, `n_latent_dims`, `n_priors`, 
-      `n_encoder_layers`, `n_decoder_layers`, `n_decoder_layers`, 
-      `n_vars`, `z_hat_conditonal_dims`.
+  components: List[ComponentConfig]
+      the topological sorted (based on dependency graph) list of 
+      components related config.
 
   yaml: Dict[str, Any]
       the original yaml config in dictionary format.
@@ -74,10 +69,11 @@ class Config:
       default_optimizer: str = 'adam',
       default_learning_rate: float = 5e-4,
       default_max_n_epochs: int = 500,
-      default_batch_size: int = 128,
+      default_batch_size: int = 256,
       default_n_latent_dims: int = 5,
       default_n_encoder_layers: int = 3,
-      default_n_decoder_layers: int = 3) -> None:
+      default_n_decoder_layers: int = 3,
+      default_n_progressive_epochs: int = 100) -> None:
     """Constructor for Config instance.
 
     Parameters
@@ -109,6 +105,9 @@ class Config:
     default_n_decoder_layers: int, optional
         default number of layers in the decoder backbone. Defaults to 3.
     
+    default_n_progressive_epochs: int, optional
+        default number of progressive epochs. Default to 100.
+
     Raises
     ------
     KeyError
@@ -122,18 +121,17 @@ class Config:
     setup_config_model: setup model related config.
 
     """
-    self.datadir: str = ''
     self.filename = os.path.realpath(filename)
     self.yaml: Dict[str, Any] = FileReader.read_yaml(filename)
-    self.io: Dict[str, Any] = dict()
-    self.sample: OrderedDict[str, Any] = OrderedDict()
-    self.modality: Dict[str, Any] = dict()
+    self.io: IOConfig = IOConfig(dict())
+    self.sample: OrderedDict[str, SampleConfig] = OrderedDict()
+    self.modality: Dict[str, ModalityConfig] = dict()
     self.modality_names: List[str] = list()
-    self.modality_filter: Dict[str, Any] = dict()
-    self.model: Dict[str, Any] = dict()
-    self.training: Dict[str, Any] = dict()
-    self.components: List[Any] = list()
-    self.dataset: Dict[str, Any] = dict()
+    self.model: ModelConfig = ModelConfig(dict())
+    self.filter: Dict[str, List[FilterConfig]] = dict()
+    self.training: TrainingConfig = TrainingConfig(dict())
+    self.components: List[ComponentConfig] = list()
+    self.dataset: DatasetConfig = DatasetConfig(dict())
     
     self.setup_iopath(default_datadir=default_data_dir)
     self.setup_config_modality()
@@ -146,7 +144,8 @@ class Config:
     self.setup_config_model(
         default_n_latent_dims=default_n_latent_dims,
         default_n_encoder_layers=default_n_encoder_layers,
-        default_n_decoder_layers=default_n_decoder_layers)
+        default_n_decoder_layers=default_n_decoder_layers,
+        default_n_progressive_epochs=default_n_progressive_epochs)
 
     return
 
@@ -211,9 +210,11 @@ class Config:
         default value for the data directory. Defaults to './'.
 
     """
-    self.io = self.yaml.get(Constants.CONFIG_FIELD_IO)
-    datadir = self.io.get(Constants.CONFIG_FIELD_IO_DATADIR, default_datadir)
-    self.datadir = os.path.realpath(os.path.dirname(f'{datadir}/'))
+    io_config = self.yaml.get(Constants.CONFIG_FIELD_IO)
+    datadir = io_config.get(Constants.CONFIG_FIELD_IO_DATADIR, default_datadir)
+    io_config[Constants.CONFIG_FIELD_IO_DATADIR] = os.path.realpath(os.path.dirname(f'{datadir}/'))
+
+    self.io = IOConfig(io_config)
     return
 
   def setup_config_modality(self) -> None:
@@ -227,7 +228,7 @@ class Config:
     """
     # Clear self.modality and self.modality_filter
     self.modality = dict()
-    self.modality_filter = dict()
+    self.filter = dict()
 
     # Get the list of modality config
     modality_config_list = self.yaml.get(Constants.CONFIG_FIELD_MODALITY, [])
@@ -244,18 +245,20 @@ class Config:
           modality_config,
           Constants.CONFIG_FIELD_MODALITY)
       modality_type = modality_config.get(Constants.CONFIG_FIELD_MODALITY_TYPE).lower()
+      filter_configs = modality_config.get(Constants.CONFIG_FIELD_MODALITY_FILTER, [])
+      filter_configs = [FilterConfig(x) for x in filter_configs]
+      modality_config[Constants.CONFIG_FIELD_MODALITY_FILTER] = filter_configs
 
       # Set default values if not specified in the config
       modality_config[Constants.CONFIG_FIELD_SAMPLE] = []
       modality_config.setdefault(
           Constants.CONFIG_FIELD_MODALITY_DIST,
           Constants.DEFAULT_MODALITY_DISTRIBUTION.get(modality_type))
+      modality_config = ModalityConfig(modality_config)
 
       # Save the processed result to self.modality_names, self.modality and self.modality_filter
       self.modality.setdefault(modality_name, modality_config)
-      self.modality_filter.setdefault(
-          modality_name,
-          modality_config.get(Constants.CONFIG_FIELD_MODALITY_FILTER, {}))
+      self.filter.setdefault(modality_name, filter_configs)
     
     self.modality_names = list(self.modality.keys())
       
@@ -285,9 +288,9 @@ class Config:
     for i, sample_config in enumerate(sample_config_list):
       # Get sample information
       sample_name = sample_config.get('name', f"sample/{i:02d}")
-      sample_description = sample_config.get('description', f"sample/{i:>02}")
+      sample_description = sample_config.get(Constants.CONFIG_FIELD_SAMPLE_DESCRIPTION, f"sample/{i:>02}")
       sample_config['name'] = sample_name
-      sample_config['description'] = sample_description
+      sample_config[Constants.CONFIG_FIELD_SAMPLE_DESCRIPTION] = sample_description
 
       # Check if all required keys are in the sample config.
       self.are_all_fields_in_mapping(
@@ -295,7 +298,7 @@ class Config:
           sample_config,
           Constants.CONFIG_FIELD_SAMPLE,
           sample_name)
-      self.sample.setdefault(sample_name, sample_config)    
+      self.sample.setdefault(sample_name, SampleConfig(sample_config))    
       
       # Check each modality config in the sample
       for i, sample_modality_config in enumerate(sample_config.get(Constants.CONFIG_FIELD_MODALITY)):
@@ -344,34 +347,37 @@ class Config:
         default batch size for training and predict. Defaults to 128.
 
     """
-    # Clear the OrderedDict of training
-    self.training = dict()
-    self.dataset = dict()
-
     model_config = self.yaml.get(Constants.CONFIG_FIELD_MODEL, {})
     # Set default values if not specified in the training config
-    self.training = model_config.get(Constants.CONFIG_FIELD_MODEL_TRAINING, {})
-    optimizer_config = self.training.get(Constants.CONFIG_FIELD_MODEL_TRAINING_OPTIMIZER, {})
+    training_config = model_config.get(Constants.CONFIG_FIELD_MODEL_TRAINING, {})
+    optimizer_config = training_config.get(Constants.CONFIG_FIELD_MODEL_TRAINING_OPTIMIZER, {})
     optimizer_config.setdefault('name', default_optimizer)
     optimizer_config.setdefault(
         Constants.CONFIG_FIELD_MODEL_TRAINING_LEARNING_RATE, default_learning_rate
     )
-    self.training[Constants.CONFIG_FIELD_MODEL_TRAINING_OPTIMIZER] = optimizer_config
-    self.training.setdefault(
+    optimizer_config[Constants.CONFIG_FIELD_MODEL_TRAINING_LEARNING_RATE] = float(
+        optimizer_config.get(Constants.CONFIG_FIELD_MODEL_TRAINING_LEARNING_RATE))
+    optimizer_config = OptimizerConfig(optimizer_config)
+
+    training_config[Constants.CONFIG_FIELD_MODEL_TRAINING_OPTIMIZER] = optimizer_config
+    training_config.setdefault(
         Constants.CONFIG_FIELD_MODEL_TRAINING_N_EPOCHS, 
         default_max_n_epochs)
-    
+    self.training = TrainingConfig(training_config)
+
     # Set default values if not specified in the dataset config
-    self.dataset = model_config.get(Constants.CONFIG_FIELD_MODEL_DATASET, {})
-    self.dataset.setdefault(
+    dataset_config = model_config.get(Constants.CONFIG_FIELD_MODEL_DATASET, {})
+    dataset_config.setdefault(
         Constants.CONFIG_FIELD_MODEL_DATASET_BATCHSIZE,
         default_batch_size)
+    self.dataset = DatasetConfig(dataset_config)
 
   def setup_config_model(
       self,
       default_n_latent_dims: int = 5,
       default_n_encoder_layers: int = 3,
-      default_n_decoder_layers: int = 3) -> None:
+      default_n_decoder_layers: int = 3,
+      default_n_progressive_epochs: int = 100) -> None:
     """Setup model and component related config.
 
     Parameters
@@ -384,6 +390,9 @@ class Config:
 
     default_n_decoder_layers: int, optional
         default number of layers in the decoder backbone. Defaults to 3.
+    
+    default_n_progressive_epochs: int, optional
+        default number of progressive epochs. Defaults to 100.
 
     Raises
     ------
@@ -414,23 +423,29 @@ class Config:
       component_name = component_config.get('name', f"Component/{i:02d}")
       component_name = GeneralUtils.tensorflow_compatible_str(component_name)
       self.are_all_fields_in_mapping(
-          Constants.CONFIG_FIELD_MODEL_COMPONENT_REQUIRED,
+          Constants.CONFIG_FIELD_COMPONENT_REQUIRED,
           component_config,
           component_name,
           'component config')
       
       # Set default values for conditioend_on, n_encoder_layers, n_latent_dims and n_priors for
       # each component
-      component_conditioned_on = component_config.get('conditioned_on', [])
+      component_conditioned_on = component_config.get(
+          Constants.CONFIG_FIELD_COMPONENT_CONDITION,
+          [])
       component_conditioned_on = [GeneralUtils.tensorflow_compatible_str(x) for x in component_conditioned_on]
+      component_n_progressive_epochs = component_config.get(
+          Constants.CONFIG_FIELD_COMPONENT_N_PROGRESSIVE_EPOCHS,
+          default_n_progressive_epochs
+      )
       component_n_encoder_layers = component_config.get(
-          Constants.CONFIG_FIELD_MODEL_COMPONENT_N_ENCODER_LAYERS,
+          Constants.CONFIG_FIELD_COMPONENT_N_ENCODER_LAYERS,
           default_n_encoder_layers)
       component_n_latent_dims = component_config.get(
-          Constants.CONFIG_FIELD_MODEL_COMPONENT_N_LATENT_DIMS,
+          Constants.CONFIG_FIELD_COMPONENT_N_LATENT_DIMS,
           default_n_latent_dims)
       component_n_latent_priors = component_config.get(
-          Constants.CONFIG_FIELD_MODEL_COMPONENT_N_PRIORS,
+          Constants.CONFIG_FIELD_COMPONENT_N_PRIORS,
           2 * component_n_latent_dims + 1)
       component_modalities = component_config.get(Constants.CONFIG_FIELD_MODALITY)
       component_modality_names = list() 
@@ -440,7 +455,7 @@ class Config:
       # Setup modality names and decoder for the component
       for modality_config in component_modalities:
         self.are_all_fields_in_mapping(
-          Constants.CONFIG_FIELD_MODEL_COMPONENT_MODALITIES_REQUIRED,
+          Constants.CONFIG_FIELD_COMPONENT_MODALITIES_REQUIRED,
           modality_config,
           component_name,
           'modalities config')
@@ -448,28 +463,50 @@ class Config:
         modality_name = GeneralUtils.tensorflow_compatible_str(modality_name)
         modality_dist = self.modality.get(modality_name).get(Constants.CONFIG_FIELD_MODALITY_DIST)
         modality_n_decoder_layer = modality_config.get(
-            Constants.CONFIG_FIELD_MODEL_COMPONENT_N_DECODER_LAYERS,
+            Constants.CONFIG_FIELD_COMPONENT_N_DECODER_LAYERS,
             default_n_decoder_layers)
         component_modality_names.append(modality_name)
         component_distribution_names.setdefault(modality_name, modality_dist)
         component_n_decoder_layers.setdefault(modality_name, modality_n_decoder_layer)
 
       # Store the processed_component_config to component_name
-      processed_component_config = {
-          'name': component_name,
-          'conditioned_on': component_conditioned_on,
-          'modality_names': component_modality_names,
-          'distribution_names': component_distribution_names,
-          'n_latent_dims': component_n_latent_dims,
-          'n_latent_priors': component_n_latent_priors,
-          'n_encoder_layers': component_n_encoder_layers,
-          'n_decoder_layers': component_n_decoder_layers
-      }
+      processed_component_config = dict()
+      processed_component_config.setdefault('name', component_name)
+      processed_component_config.setdefault(
+          Constants.CONFIG_FIELD_COMPONENT_CONDITION,
+          component_conditioned_on)
+      processed_component_config.setdefault(
+          Constants.CONFIG_FIELD_COMPONENT_N_PROGRESSIVE_EPOCHS,
+          component_n_progressive_epochs)
+      processed_component_config.setdefault(
+          Constants.CONFIG_FIELD_COMPONENT_MODALITY_NAMES,
+          component_modality_names)
+      processed_component_config.setdefault(
+          Constants.CONFIG_FIELD_COMPONENT_MODALITY_DIST_NAMES,
+          component_distribution_names)
+      processed_component_config.setdefault(
+          Constants.CONFIG_FIELD_COMPONENT_N_LATENT_DIMS,
+          component_n_latent_dims)
+      processed_component_config.setdefault(
+          Constants.CONFIG_FIELD_COMPONENT_N_PRIORS,
+          component_n_latent_priors)
+      processed_component_config.setdefault(
+          Constants.CONFIG_FIELD_COMPONENT_N_ENCODER_LAYERS,
+          component_n_encoder_layers)
+      processed_component_config.setdefault(
+          Constants.CONFIG_FIELD_COMPONENT_N_DECODER_LAYERS,
+          component_n_decoder_layers)
+
+      processed_component_config = ComponentConfig(processed_component_config)
       processed_component_config_mapping.setdefault(component_name, processed_component_config)
     
-     # Sort the components based on the BFS order
-    self.components = GeneralUtils.order_components(processed_component_config_mapping)
-    self.model = {
+    # Sort the components based on the BFS order
+    sorted_component_configs = GeneralUtils.order_components(processed_component_config_mapping)
+    self.components = [ComponentConfig(x) for x in sorted_component_configs]
+    
+    self.model = ModelConfig({
       'name': model_name,
-      'components': self.components
-    }
+      Constants.CONFIG_FIELD_MODEL_COMPONENT: self.components,
+      Constants.CONFIG_FIELD_MODEL_TRAINING: self.training,
+      Constants.CONFIG_FIELD_MODEL_DATASET: self.dataset
+    })
