@@ -1,4 +1,4 @@
-from collections.abc import Mapping as MutableMapping
+from collections.abc import MutableMapping
 from typing import Any, Mapping, Iterator
 
 class ConfigMapping(MutableMapping):
@@ -19,11 +19,24 @@ class ConfigMapping(MutableMapping):
         children classes.
     
     """
-    self.__keys = config.keys()
+    super().__init__()
+    self.__keys = set(config.keys())
     for key, value in config.items():
       setattr(self, key, value)
 
-  def __setitem__(self, __name: str, __value: Any):
+  def __delitem__(self, __name: str) -> None:
+    """Implementation for __delitem__ in MutableMapping.
+
+    Parameters
+    ----------
+    __name: str
+        name
+
+    """
+    delattr(self, __name)
+    self.__keys = set(filter(lambda x: x != __name, self.__keys))
+
+  def __setitem__(self, __name: str, __value: Any) -> None:
     """Implementation for __setitem__ in MutableMapping.
 
     Parameters
@@ -36,6 +49,8 @@ class ConfigMapping(MutableMapping):
 
     """
     setattr(self, __name, __value)
+    if __name not in self.__keys:
+      self.__keys.add(__name)
 
   def __getitem__(self, __name: str) -> Any:
     """Implementation for __getitem__ in MutableMapping.
@@ -45,12 +60,20 @@ class ConfigMapping(MutableMapping):
     __name: str
         name
 
+    Raises
+    ------
+    KeyError
+        if __name not in attributes of ConfigMapping
+
     Returns
     -------
     Any
         value
 
     """
+    if not hasattr(self, __name):
+      raise KeyError(__name)
+
     return getattr(self, __name)
 
   def __iter__(self) -> Iterator[Mapping]:

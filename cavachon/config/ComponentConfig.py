@@ -1,5 +1,4 @@
 from cavachon.config.ConfigMapping import ConfigMapping
-from cavachon.config.ModalityFileConfig import ModalityFileConfig
 from typing import Any, List, Mapping
 
 class ComponentConfig(ConfigMapping):

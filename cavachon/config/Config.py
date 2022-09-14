@@ -1,4 +1,3 @@
-from msilib.schema import Component
 import os
 from cavachon.config.ComponentConfig import ComponentConfig
 from cavachon.config.DatasetConfig import DatasetConfig

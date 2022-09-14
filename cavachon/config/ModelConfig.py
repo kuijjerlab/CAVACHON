@@ -1,7 +1,6 @@
 from cavachon.config.ComponentConfig import ComponentConfig
 from cavachon.config.ConfigMapping import ConfigMapping
 from cavachon.config.DatasetConfig import DatasetConfig
-from cavachon.config.ModalityFileConfig import ModalityFileConfig
 from cavachon.config.TrainingConfig import TrainingConfig
 from typing import Any, List, Mapping
 
