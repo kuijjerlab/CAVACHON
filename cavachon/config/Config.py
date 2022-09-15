@@ -429,10 +429,14 @@ class Config:
       
       # Set default values for conditioend_on, n_encoder_layers, n_latent_dims and n_priors for
       # each component
-      component_conditioned_on = component_config.get(
-          Constants.CONFIG_FIELD_COMPONENT_CONDITION,
+      component_conditioned_on_z = component_config.get(
+          Constants.CONFIG_FIELD_COMPONENT_CONDITION_Z,
           [])
-      component_conditioned_on = [GeneralUtils.tensorflow_compatible_str(x) for x in component_conditioned_on]
+      component_conditioned_on_z = [GeneralUtils.tensorflow_compatible_str(x) for x in component_conditioned_on_z]
+      component_conditioned_on_z_hat = component_config.get(
+          Constants.CONFIG_FIELD_COMPONENT_CONDITION_Z_HAT,
+          [])
+      component_conditioned_on_z_hat = [GeneralUtils.tensorflow_compatible_str(x) for x in component_conditioned_on_z_hat]
       component_n_progressive_epochs = component_config.get(
           Constants.CONFIG_FIELD_COMPONENT_N_PROGRESSIVE_EPOCHS,
           default_n_progressive_epochs
@@ -472,8 +476,11 @@ class Config:
       processed_component_config = dict()
       processed_component_config.setdefault('name', component_name)
       processed_component_config.setdefault(
-          Constants.CONFIG_FIELD_COMPONENT_CONDITION,
-          component_conditioned_on)
+          Constants.CONFIG_FIELD_COMPONENT_CONDITION_Z,
+          component_conditioned_on_z)
+      processed_component_config.setdefault(
+          Constants.CONFIG_FIELD_COMPONENT_CONDITION_Z_HAT,
+          component_conditioned_on_z_hat)
       processed_component_config.setdefault(
           Constants.CONFIG_FIELD_COMPONENT_N_PROGRESSIVE_EPOCHS,
           component_n_progressive_epochs)

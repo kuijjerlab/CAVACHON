@@ -2,6 +2,7 @@ from cavachon.environment.Constants import Constants
 from typing import Any, Dict, Iterable, List, Mapping, Union
 
 import copy
+import itertools
 import networkx as nx
 import re
 
@@ -49,10 +50,15 @@ class GeneralUtils:
     for i in component_ids:
       G.add_node(i)
     for component_id, component_config in id_component_mapping.items():
-      conditioned_on = component_config.get('conditioned_on')
-      if conditioned_on is not None or len(conditioned_on) != 0:
-        for conditioned_on_component_name in conditioned_on:
-          conditioned_on_component_id = component_id_mapping.get(conditioned_on_component_name)
+      conditioned_on_z = component_config.get(
+          Constants.CONFIG_FIELD_COMPONENT_CONDITION_Z, 
+          [])
+      conditioned_on_z_hat = component_config.get(
+          Constants.CONFIG_FIELD_COMPONENT_CONDITION_Z_HAT,
+          [])
+      if len(conditioned_on_z) + len(conditioned_on_z_hat) != 0:
+        for conditioned_on_name in itertools.chain(conditioned_on_z, conditioned_on_z_hat):
+          conditioned_on_component_id = component_id_mapping.get(conditioned_on_name)
           G.add_edge(component_id, conditioned_on_component_id)
     
     if not nx.is_directed_acyclic_graph(G):
