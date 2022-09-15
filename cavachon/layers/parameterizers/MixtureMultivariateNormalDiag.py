@@ -12,6 +12,7 @@ class MixtureMultivariateNormalDiag(tf.keras.layers.Layer):
       self,
       event_dims: int,
       n_components: int,
+      unit_variance: bool = True,
       name: str = 'mixture_multivariate_normal_diag_parameterizer'):
     """Constructor for MultivariateNormalDiag
 
@@ -24,6 +25,9 @@ class MixtureMultivariateNormalDiag(tf.keras.layers.Layer):
     n_components: int
         number of components in the mixture distributions.
 
+    unit_variance: bool, optional
+        use unit variance. Defaults to True.
+
     name: str, optional
         Name for the tensorflow layer. Defaults to 
         'mixture_multivariate_normal_diag_parameterizer'.
@@ -32,6 +36,7 @@ class MixtureMultivariateNormalDiag(tf.keras.layers.Layer):
     super().__init__(name=name)
     self.event_dims: int = event_dims
     self.n_components: int = n_components
+    self.unit_variance: bool = unit_variance
     return
 
   def build(self, input_shape: tf.TensorShape) -> None:
@@ -46,15 +51,19 @@ class MixtureMultivariateNormalDiag(tf.keras.layers.Layer):
     """
     self.logits_weight = self.add_weight(
         f'{self.name}/logits_weight',
-        shape=(int(input_shape[-1]), self.n_components))
+        shape=(int(input_shape[-1]), self.n_components),
+        initializer=tf.keras.initializers.Constant(0.))
     self.logits_bias = self.add_weight(
         f'{self.name}/logits_bias',
-        shape=(1, self.n_components))
+        shape=(1, self.n_components),
+        initializer=tf.keras.initializers.Constant(0.))
     
     self.loc_weight = []
     self.loc_bias = []
-    self.scale_diag_weight = []
-    self.scale_diag_bias = []
+    if not self.unit_variance:
+      self.scale_diag_weight = []
+      self.scale_diag_bias = []
+    
     for i in range(self.n_components):
       self.loc_weight.append(self.add_weight(
           f'{self.name}/loc_weight_{i}',
@@ -62,12 +71,13 @@ class MixtureMultivariateNormalDiag(tf.keras.layers.Layer):
       self.loc_bias.append(self.add_weight(
           f'{self.name}/loc_bias_{i}',
           shape=(1, self.event_dims)))
-      self.scale_diag_weight.append(self.add_weight(
-          f'{self.name}/scale_diag_weight_{i}',
-          shape=(int(input_shape[-1]), self.event_dims)))
-      self.scale_diag_bias.append(self.add_weight(
-          f'{self.name}/scale_diag_bias_{i}',
-          shape=(1, self.event_dims)))
+      if not self.unit_variance:
+        self.scale_diag_weight.append(self.add_weight(
+            f'{self.name}/scale_diag_weight_{i}',
+            shape=(int(input_shape[-1]), self.event_dims)))
+        self.scale_diag_bias.append(self.add_weight(
+            f'{self.name}/scale_diag_bias_{i}',
+            shape=(1, self.event_dims)))
 
     return
 
@@ -102,13 +112,18 @@ class MixtureMultivariateNormalDiag(tf.keras.layers.Layer):
     for i in range(self.n_components):
       loc_weight = self.loc_weight[i]
       loc_bias = self.loc_bias[i]
-      scale_diag_weight = self.scale_diag_weight[i]
-      scale_diag_bias = self.scale_diag_bias[i]
+      if not self.unit_variance:
+        scale_diag_weight = self.scale_diag_weight[i]
+        scale_diag_bias = self.scale_diag_bias[i]
+      
+      mean =  tf.matmul(inputs, loc_weight) + loc_bias
 
-      means.append(
-          tf.matmul(inputs, loc_weight) + loc_bias),
-      scale_diag.append(
-          tf.math.softplus(tf.matmul(inputs, scale_diag_weight) + scale_diag_bias) + 1e-7)
+      means.append(mean),
+      if not self.unit_variance:
+        scale_diag.append(
+            tf.math.softplus(tf.matmul(inputs, scale_diag_weight) + scale_diag_bias) + 1e-7)
+      else:
+        scale_diag.append(tf.ones_like(mean))
 
     # shape: (batch, n_components, event_dims)
     means = tf.stack(means, axis=1)
