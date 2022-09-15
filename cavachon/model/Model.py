@@ -1,3 +1,4 @@
+from cavachon.config.ComponentConfig import ComponentConfig
 from cavachon.environment.Constants import Constants
 from cavachon.layers.modifiers import ToDense
 from cavachon.losses.KLDivergence import KLDivergence
@@ -21,7 +22,7 @@ class Model(tf.keras.Model):
   components: List[Component]
       list of components which makes up the model.
 
-  component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]
+  component_configs: List[ComponentConfig]
       the config used to create the components in the model.
 
   """
@@ -30,32 +31,32 @@ class Model(tf.keras.Model):
       inputs: Mapping[Any, tf.keras.Input],
       outputs: Mapping[Any, tf.Tensor],
       components: List[Component],
-      component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]],
+      component_configs: List[ComponentConfig],
       name: str = 'model',
       **kwargs):
-    """Constuctro for Model. Should not be called directly most of the 
+    """Constuctor for Model. Should not be called directly most of the 
     time. Please use make() to create the model.
 
     Parameters
     ----------
     inputs: Mapping[Any, tf.keras.Input]): 
         inputs for building tf.keras.Model using Tensorflow functional 
-        API. By defaults, expect to have keys ('z_hat_conditional', ),
-        (modality_name, Constants.TENSOR_NAME_X), and
-        (modality_name, Constants.LIBSIZE) (if appplicable).
+        API. By defaults, expect to have keys 'z_hat_conditional',
+        `modality_name`_matrix, and `modality_name`_libsize (if 
+        appplicable).
     
     outputs: Mapping[Any, tf.keras.Input]): 
         outputs for building tf.keras.Model using Tensorflow functional 
         API. By defaults, the keys are 
-        (component_names, component_names, 'z'), 
-        (component_names, component_names, 'z_hat'), 
-        (component_names, component_names, 'z_parameters') 
-        and (component_names, modality_nanes, 'x_parameters').
+        `component_names`_z, 
+        `component_names`_z_hat, 
+        `component_names`_z_parameters and 
+        `component_names`_`modality_nanes`_x_parameters.
     
     components: List[Component]
       list of components which makes up the model.
 
-    component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]
+    component_configs: List[ComponentConfig]
       the config used to create the components in the model.
 
     name: str, optional:
@@ -67,7 +68,7 @@ class Model(tf.keras.Model):
     """
     super().__init__(inputs=inputs, outputs=outputs, name=name)
     self.components: List[Component] = components
-    self.component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]] = component_configs
+    self.component_configs: List[ComponentConfig] = component_configs
 
   @classmethod
   def setup_inputs(
@@ -96,31 +97,32 @@ class Model(tf.keras.Model):
     -------
     Mapping[Any, tf.keras.Input]:
         inputs for building tf.keras.Model using Tensorflow functional 
-        API.
+        API, where keys are `modality_name`/matrix, values are the
+        tf.keras.Input.
 
     """
     inputs = dict()
     for modality_name in modality_names:
-      modality_key = (modality_name, Constants.TENSOR_NAME_X)
+      modality_key = f'{modality_name}/{Constants.TENSOR_NAME_X}'
       inputs.setdefault(
           modality_key,
           tf.keras.Input(
               shape=(n_vars.get(modality_name), ),
-              name=f'{modality_name}_matrix'))
+              name=f'{modality_name}/{Constants.TENSOR_NAME_X}'))
 
     return inputs
 
   @classmethod
   def setup_components(
       cls,
-      component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]],
+      component_configs: List[ComponentConfig],
       **kwargs) -> Tuple:
     """Builder function for setting up components. Developers can 
     overwrite this function to create custom Model.
 
     Parameters
     ----------
-    component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]
+    component_configs: List[ComponentConfig]
         the config used to create the components in the model.
 
     kwargs: Mapping[str, Any]
@@ -144,22 +146,36 @@ class Model(tf.keras.Model):
     distributions = dict()
     n_vars = dict()
     for component_config in component_configs:
-      modality_names = modality_names.union(set(component_config.get('modality_names')))
-      distributions.update(component_config.get('distribution_names'))
-      n_vars.update(component_config.get('n_vars'))
+      modality_names = modality_names.union(
+          set(component_config.get(Constants.CONFIG_FIELD_COMPONENT_MODALITY_NAMES)))
+      distributions.update(
+          component_config.get(Constants.CONFIG_FIELD_COMPONENT_MODALITY_DIST_NAMES))
+      n_vars.update(component_config.get(Constants.CONFIG_FIELD_COMPONENT_N_VARS))
       component_name = component_config.get('name')
-      conditioned_on = component_config.get('conditioned_on', [])
-      if len(conditioned_on) == 0:
-        component_config.setdefault('z_hat_conditional_dims', None)
-        components.setdefault(component_name, Component.make(**component_config))
-      else:
-        z_hat_conditional_dims = 0
-        for conditioned_on_component_name in conditioned_on:
-          component = components.get(conditioned_on_component_name)
-          z_hat_conditional_dims += component.z_prior_parameterizer.event_dims
-        component_config.setdefault('z_hat_conditional_dims', z_hat_conditional_dims)
-        components.setdefault(component_name, Component.make(**component_config))
-    
+
+      conditioned_on_keys = [
+        Constants.CONFIG_FIELD_COMPONENT_CONDITION_Z,
+        Constants.CONFIG_FIELD_COMPONENT_CONDITION_Z_HAT
+      ]
+      conditioned_on_dims_keys = [
+        Constants.MODEL_INPUTS_Z_CONDITIONAL_DIMS,
+        Constants.MODEL_INPUTS_Z_HAT_CONDITIONAL_DIMS
+      ]
+      conditioned_on_keys = zip(conditioned_on_keys, conditioned_on_dims_keys)
+      for conditioned_on_key, conditioned_on_dims_key in conditioned_on_keys:
+        conditioned_on = component_config.get(conditioned_on_key, [])
+        if len(conditioned_on) == 0:
+          component_config.setdefault(conditioned_on_dims_key, None)
+        else:
+          conditional_dims = 0
+          for conditioned_on_component_name in conditioned_on:
+            component = components.get(conditioned_on_component_name)
+            conditional_dims += component.z_prior_parameterizer.event_dims
+          component_config.setdefault(
+              conditioned_on_dims_key,
+              conditional_dims)
+      components.setdefault(component_name, Component.make(**component_config))
+  
     return components, component_configs, modality_names, n_vars
 
   @classmethod
@@ -167,7 +183,7 @@ class Model(tf.keras.Model):
       cls,
       inputs: Mapping[Any, tf.keras.Input],
       components: List[Component],
-      component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]],
+      component_configs: List[ComponentConfig],
       **kwargs) -> Mapping[Any, tf.Tensor]:
     """Builder function for setting up outputs. Developers can overwrite 
     this function to create custom Model.
@@ -180,7 +196,7 @@ class Model(tf.keras.Model):
     components: List[Component]
       components created by setup_components().
 
-    component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]]
+    component_configs: List[ComponentConfig]
       the config used to create the components in the model.
 
     kwargs: Mapping[str, Any]
@@ -193,36 +209,62 @@ class Model(tf.keras.Model):
         API.
 
     """
-
+    z_conditional = dict()
     z_hat_conditional = dict()
     outputs = dict()
     for component_config in component_configs:
       component_inputs = dict()
       component_name = component_config.get('name')
-      conditioned_on = component_config.get('conditioned_on', [])
       component = components.get(component_name)
       for modality_name in component.modality_names:
-        modality_key = (modality_name, Constants.TENSOR_NAME_X)
+        modality_key = f"{modality_name}/{Constants.TENSOR_NAME_X}"
         component_inputs.setdefault(modality_key, inputs.get(modality_key))
-      
-      if len(conditioned_on) != 0:
-        z_hat = []
-        for conditioned_on_component_name in conditioned_on:
-          z_hat.append(z_hat_conditional.get(conditioned_on_component_name))
-        z_hat = tf.concat(z_hat, axis=-1)
-        component_inputs.setdefault(('z_hat_conditional', ), z_hat)
-      
+        
+      conditioned_on_keys = [
+        Constants.MODULE_INPUTS_CONDITIONED_Z,
+        Constants.MODULE_INPUTS_CONDITIONED_Z_HAT
+      ]
+      conditioned_on_config_keys = [
+        Constants.CONFIG_FIELD_COMPONENT_CONDITION_Z,
+        Constants.CONFIG_FIELD_COMPONENT_CONDITION_Z_HAT
+      ]
+      conditioned_on_dict = [
+        z_conditional,
+        z_hat_conditional
+      ]
+      conditioned_on_keys = zip(
+          conditioned_on_keys, 
+          conditioned_on_config_keys, 
+          conditioned_on_dict)
+      for conditioned_on_key, conditioned_on_config_key, conditioned_on_d in conditioned_on_keys:
+        conditional = []
+        conditioned_on = component_config.get(conditioned_on_config_key, [])
+        if len(conditioned_on) != 0:
+          for conditioned_on_component_name in conditioned_on:
+            conditional.append(conditioned_on_d.get(conditioned_on_component_name))
+          conditional = tf.concat(conditional, axis=-1)
+          component_inputs.setdefault(
+              conditioned_on_key,
+              conditional)
+
       results = component(component_inputs)
       for key, result in results.items():
-        outputs.setdefault((component_name, ) + key, result)
-      z_hat_conditional.setdefault(component_name, results.get((component_name, 'z_hat')))
+        outputs.setdefault(f"{component_name}/{key}", result)
+     
+      z_conditional.setdefault(
+          component_name, 
+          results.get(Constants.MODEL_OUTPUTS_Z))
+
+      z_hat_conditional.setdefault(
+          component_name,
+          results.get(Constants.MODEL_OUTPUTS_Z_HAT))
     
     return outputs
 
   @classmethod
   def make(
       cls,
-      component_configs: Union[Iterable[Dict[str, Any]], Dict[str, Dict[str, Any]]],
+      component_configs: List[ComponentConfig],
       name: str = 'cavachon',
       **kwargs) -> tf.keras.Model:
     """Make the tf.keras.Model using the functional API of Tensorflow.
@@ -283,17 +325,19 @@ class Model(tf.keras.Model):
       loss = dict()
       for component_config in self.component_configs:
         component_name = component_config.get('name')
-        kl_divergence_name = f'{component_name}_kl_divergence'
+        kl_divergence_name = f'{component_name}/{Constants.MODEL_LOSS_KL_POSTFIX}'
         loss.setdefault(
             kl_divergence_name,
             KLDivergence(name=kl_divergence_name))
 
         for modality_name in component_config.get('modality_names'):
-          nldl_name = f'{component_name}_{modality_name}_negative_log_data_likelihood'
+          nldl_name = f'{component_name}/{modality_name}/{Constants.MODEL_LOSS_DATA_POSTFIX}'
+          distribution_names = component_config.get(
+              Constants.CONFIG_FIELD_COMPONENT_MODALITY_DIST_NAMES)
           loss.setdefault(
               nldl_name,
               NegativeLogDataLikelihood(
-                  component_config.get('distribution_names').get(modality_name),
+                  distribution_names.get(modality_name),
                   name=nldl_name))
       kwargs.setdefault('loss', loss)
     else:
@@ -335,27 +379,30 @@ class Model(tf.keras.Model):
   
       for component_config in self.component_configs:
         component_name = component_config.get('name')
-        kl_divergence_name = f'{component_name}_kl_divergence'
+        kl_divergence_name = f'{component_name}/{Constants.MODEL_LOSS_KL_POSTFIX}'
         component = self.components.get(component_name)
-        modality_names = component_config.get('modality_names')
+
+        modality_names = component_config.get(Constants.CONFIG_FIELD_COMPONENT_MODALITY_NAMES)
         y_true.setdefault(
             kl_divergence_name,
             component.z_prior_parameterizer(tf.ones((1, 1))))
+        
+        z_key = f'{component_name}/{Constants.MODEL_OUTPUTS_Z}'
+        z_params_key = f'{component_name}/{Constants.MODEL_OUTPUTS_Z_PARAMS}'
+            
         y_pred.setdefault(
             kl_divergence_name,
-            tf.concat(
-                [results.get((component_name, component_name, 'z')), results.get((component_name, component_name, 'z_parameters'))],
-                axis=-1))
+            tf.concat([results.get(z_key), results.get(z_params_key)], axis=-1))
         for modality_name in modality_names:
-          nldl_name = f'{component_name}_{modality_name}_negative_log_data_likelihood'
-          modality_key = (modality_name, Constants.TENSOR_NAME_X)
+          nldl_name = f'{component_name}/{modality_name}/{Constants.MODEL_LOSS_DATA_POSTFIX}'
+          modality_key = f"{modality_name}/{Constants.TENSOR_NAME_X}"
           data = ToDense(modality_key)(data)
           y_true.setdefault(
               nldl_name,
               data.get(modality_key))
           y_pred.setdefault(
               nldl_name,
-              results.get((component_name, modality_name, 'x_parameters')))
+              results.get(f"{component_name}/{modality_name}/{Constants.MODEL_OUTPUTS_X_PARAMS}"))
       
       loss = self.compiled_loss(y_true, y_pred)
       gradients = tape.gradient(loss, self.trainable_variables)

@@ -1,4 +1,6 @@
-from typing import Any, Mapping, Optional
+from cavachon.environment.Constants import Constants
+from cavachon.layers.ProgressiveScaler import ProgressiveScaler
+from typing import Optional
 
 import tensorflow as tf
 
@@ -7,14 +9,17 @@ class HierarchicalEncoder(tf.keras.Model):
 
   HierarchicalEncoder used to encode z_hat hierarchically through the 
   dependency between components. It expects multiple tf.Tensor as 
-  inputs ('z' and 'z_hat_conditional') as inputs. This base module is 
-  implemented using Tensorflow functional API.
+  inputs. The key of the inputs are 'z', 'z_conditional' (if 
+  applicable) and 'z_hat_conditional' (if applicable). This base module 
+  is implemented using Tensorflow sequential API.
 
   """
   def __init__(
       self,
-      inputs: Mapping[Any, tf.keras.Input],
-      outputs: tf.Tensor,
+      n_latent_dims: int = 5,
+      is_conditioned_on_z: bool = False,
+      is_conditioned_on_z_hat: bool = False,
+      progressive_iterations: int = 5000,
       name: str = 'hierarchical_encoder',
       **kwargs):
     """Constructor for HierarchicalEncoder. Should not be called 
@@ -22,66 +27,79 @@ class HierarchicalEncoder(tf.keras.Model):
 
     Parameters
     ----------
-    inputs: Mapping[Any, tf.keras.Input]): 
-        inputs for building tf.keras.Model using Tensorflow functional 
-        API. Expect to have key 'z' and 'z_hat_conditional' by defaults.
-    
-    outputs: tf.Tensor:
-        outputs z_hat for building tf.keras.Model using Tensorflow 
-        functional API.
-    
-    name: str, optional:
-        Name for the tensorflow model. Defaults to 'preprocessor'.
-    """
-    super().__init__(inputs=inputs, outputs=outputs, name=name)
-
-  @classmethod
-  def make(
-      cls,
-      n_latent_dims: int = 5,
-      z_hat_conditional_dims: Optional[int] = None,
-      **kwargs) -> tf.keras.Model:
-    """Make the tf.keras.Model using the functional API of Tensorflow.
-
-    Parameters
-    ----------
     n_latent_dims: int, optional
         number of latent dimensions for the input z. Defaults to 5.
     
-    z_hat_conditional_dims: int, optional
-        dimension of z_hat from the components of the dependency. None 
-        if the component does not depends on any other components. 
-        Defaults to None.
+    is_conditioned_on_z: bool, optional
+        use latent representation from the conditioned components.
+        Defaults to False.
+
+    is_conditioned_on_z_hat: bool, optional
+        use transformed latent representation (contains information of 
+        all ancestor of conditioned components) from the conditioned 
+        components. Defaults to False.
+    
+    progressive_iterations: int, optional
+        total iterations for progressive training. Defaults to 5000.
+
+    name: str, optional:
+        Name for the tensorflow model. Defaults to 
+        'hierarchical_encoder'.
+    """
+    super().__init__(name=name)
+    self.is_conditioned_on_z = is_conditioned_on_z
+    self.is_conditioned_on_z_hat = is_conditioned_on_z_hat
+    self.progressive_scaler = ProgressiveScaler(progressive_iterations)
+    self.r_network = tf.keras.Sequential(
+        [tf.keras.layers.Dense(n_latent_dims)],
+        name=Constants.MODULE_R_NETWORK)
+    self.b_network = tf.keras.Sequential(
+        [tf.keras.layers.Dense(n_latent_dims)],
+        name=Constants.MODULE_B_NETWORK)
+  
+  def call(
+      self,
+      inputs: tf.Tensor,
+      training: bool = False,
+      mask: Optional[tf.Tensor] = None) -> tf.Tensor:
+    """Forward pass for HierarchicalEncoder.
+
+    Parameters
+    ----------
+    inputs: Mapping[str, tf.Tensor]
+        inputs Tensors for the HierarchicalEncoder, where keys are 'z', 
+        'z_conditional' (if applicable) and 'z_hat_conditional' (if 
+        applicable). (if applicable). (by defaults, expect the outputs
+        by HierarchicalEncoder)
+
+    training: bool, optional
+        whether to run the network in training mode. Defaults to False.
+    
+    mask: tf.Tensor, optional 
+        a mask or list of masks. Defaults to None.
 
     Returns
     -------
-    tf.keras.Model
-        created model using Tensorflow functional API.
-
-    """
-    inputs = dict()
-    inputs.setdefault('z', tf.keras.Input(shape=(n_latent_dims, ), name='z'))
-    if z_hat_conditional_dims is not None:
-      inputs.setdefault(
-          'z_hat_conditional', 
-          tf.keras.Input(shape=(z_hat_conditional_dims, ), name='z_hat_conditional'))
-
-    r_network = tf.keras.Sequential(
-        [tf.keras.layers.Dense(n_latent_dims)],
-        name='r_network')
-    b_network = tf.keras.Sequential(
-        [tf.keras.layers.Dense(n_latent_dims)],
-        name='b_network')
+    tf.Tensor 
+        z_hat (contains information of latent representation and the 
+        conditioned components)
     
-    z_hat = r_network(inputs.get('z'))
-    z_hat_conditional = inputs.get('z_hat', None)
-    if z_hat_conditional is None:
-        z_hat = b_network(z_hat)
-    else:
-        z_hat = tf.concat([z_hat_conditional, z_hat], axis=-1)
-        z_hat = b_network(z_hat)
+    """
 
-    return cls(inputs=inputs, outputs=z_hat, **kwargs)
+    z_hat = self.r_network(inputs.get(Constants.MODEL_OUTPUTS_Z))
+    concat_inputs = []
+    if self.is_conditioned_on_z or self.is_conditioned_on_z_hat:
+      z_hat = self.progressive_scaler(z_hat)
+      if self.is_conditioned_on_z:
+        concat_inputs.append(inputs.get(Constants.MODULE_INPUTS_CONDITIONED_Z, None))
+      if self.is_conditioned_on_z_hat:
+        concat_inputs.append(inputs.get(Constants.MODULE_INPUTS_CONDITIONED_Z_HAT, None))
+    
+    concat_inputs.append(z_hat)
+    z_hat = tf.concat(concat_inputs, axis=-1)
+    z_hat = self.b_network(z_hat)
+    
+    return z_hat
 
   def train_step(self, data):
     raise NotImplementedError()

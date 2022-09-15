@@ -24,7 +24,7 @@ class Preprocessor(tf.keras.Model):
       inputs: Mapping[Any, tf.keras.Input],
       outputs: Mapping[Any, tf.Tensor],
       name: str = 'preprocessor',
-      matrix_key: Any = (Constants.TENSOR_NAME_X, )):
+      matrix_key: Any = Constants.TENSOR_NAME_X):
     """Constructor for Preprocessor. Should not be called directly most
     of the time. Please use make() to create the model.
 
@@ -32,10 +32,9 @@ class Preprocessor(tf.keras.Model):
     ---------
     inputs: Mapping[Any, tf.keras.Input]): 
         inputs for building tf.keras.Model using Tensorflow functional 
-        API. Expect to have key (modality_name, Constants.TENSOR_NAME_X)
-        by defaults, and optionally expect 
-        (modality_name, Constants.LIBSIZE) for modality that needs to 
-        be scaling by library size.
+        API. Expect to have key `modality_name`/matrix by defaults, and 
+        optionally expect `modality_name`/libsize for modality that 
+        needs to be scaling by library size.
     
     outputs: Mapping[Any, tf.Tensor]):
         outputs for building tf.keras.Model using Tensorflow functional
@@ -45,8 +44,7 @@ class Preprocessor(tf.keras.Model):
         Name for the tensorflow model. Defaults to 'preprocessor'.
 
     matrix_key: Any, optional 
-        key to access the processed tf.Tensor. Defaults to 
-        (Constants.TENSOR_NAME_X, ).
+        key to access the processed tf.Tensor. Defaults to 'matrix'.
 
     """
     super().__init__(inputs=inputs, outputs=outputs, name=name)
@@ -98,8 +96,8 @@ class Preprocessor(tf.keras.Model):
 
     for modality_name in modality_names:
       distribution_name = distribution_names.get(modality_name)
-      modality_key = (modality_name, Constants.TENSOR_NAME_X)
-      libsize_key = (modality_name, Constants.TENSOR_NAME_LIBSIZE)
+      modality_key = f"{modality_name}/{Constants.TENSOR_NAME_X}"
+      libsize_key = f"{modality_name}/{Constants.TENSOR_NAME_X}/{Constants.TENSOR_NAME_LIBSIZE}"
       modality_input = tf.keras.Input(
           shape=(n_vars.get(modality_name), ),
           name=modality_name)
@@ -116,12 +114,10 @@ class Preprocessor(tf.keras.Model):
 
       transform_layer = tf.keras.Sequential([
         tf.keras.layers.Dense(n_dims)
-      ], name=f'{name}_{modality_name}')
+      ], name=f'{name}/{modality_name}')
       processed_matrix.append(transform_layer(modifiers_outputs.get(modality_key)))
-
-      outputs.update()
     
-    matrix_key = (Constants.TENSOR_NAME_X, )
+    matrix_key = Constants.TENSOR_NAME_X
     outputs.setdefault(matrix_key, tf.concat(processed_matrix, axis=-1))
 
     return cls(inputs=inputs, outputs=outputs, name=name, matrix_key=matrix_key)

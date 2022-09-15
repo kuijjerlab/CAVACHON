@@ -28,8 +28,8 @@ class DataLoader:
   dataset: tf.data.Dataset
       Tensorflow Dataset created from the MuData. Can be used to 
       train/test/validate the model. The field of the dataset includes: 
-      1. (`modality`, 'matrix') (tf.SparseTensor) and 
-      2. (`modality`, 'batch_effect') (tf.Tensor)
+      1. `modality_name`/matrix (tf.SparseTensor) and 
+      2. `modality_name`/batch_effect (tf.Tensor)
 
   mdata: mu.MuData
       (single-cell) multi-omics data used to create the dataset.
@@ -83,7 +83,9 @@ class DataLoader:
       # matrix as batch effect
       if issubclass(type(adata.uns), Mapping):
         adata_config = adata.uns.get('cavachon/config', {})
-        batch_effect_colnames = adata_config.get('batch_effect_colnames', None)
+        batch_effect_colnames = adata_config.get(
+            Constants.CONFIG_FIELD_SAMPLE_MODALITY_BATCH_COLNAMES,
+            None)
       else:
         batch_effect_colnames = None
 
@@ -96,10 +98,10 @@ class DataLoader:
           self.batch_effect_encoder[modality_name][colnames] = encoder
 
       tensor_mapping.setdefault(
-          (modality_name, Constants.TENSOR_NAME_X),
+          f"{modality_name}/{Constants.TENSOR_NAME_X}",
           data_tensor)
       tensor_mapping.setdefault(
-          (modality_name, Constants.TENSOR_NAME_BATCH),
+          f"{modality_name}/{Constants.TENSOR_NAME_BATCH}",
           batch_effect_tensor)
     
     self.dataset = tf.data.Dataset.from_tensor_slices(tensor_mapping)

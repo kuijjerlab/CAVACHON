@@ -8,7 +8,7 @@ class MultivariateNormalDiag(tf.keras.Model):
   def __init__(self, modality_name):
     super().__init__()
     self.modality_name = modality_name
-    self.modality_key = (modality_name, Constants.TENSOR_NAME_X)
+    self.modality_key = f"{modality_name}/{Constants.TENSOR_NAME_X}"
     self.modifiers = [
       ToDense(self.modality_key)
     ]

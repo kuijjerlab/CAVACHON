@@ -35,7 +35,7 @@ class FileReader:
         single-omics data in anndata.AnnData format.
 
     """
-    datadir = config.datadir
+    datadir = config.io.datadir
     config_modality = config.modality.get(modality_name, {})
     config_sample_list = config_modality.get('samples', [])
 

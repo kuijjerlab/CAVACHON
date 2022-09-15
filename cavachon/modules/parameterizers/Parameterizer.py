@@ -1,3 +1,4 @@
+from cavachon.environment.Constants import Constants
 from cavachon.utils.ReflectionHandler import ReflectionHandler
 from typing import Mapping
 
@@ -103,9 +104,9 @@ class Parameterizer(tf.keras.Model):
     
     """
     inputs = dict()
-    inputs.setdefault('input', tf.keras.Input(shape=(input_dims, )))
+    inputs.setdefault(Constants.TENSOR_NAME_X, tf.keras.Input(shape=(input_dims, )))
     if libsize_scaling:
-      inputs.setdefault('libsize', tf.keras.Input(shape=(1, )))
+      inputs.setdefault(Constants.TENSOR_NAME_LIBSIZE, tf.keras.Input(shape=(1, )))
     
     return inputs
 
@@ -148,7 +149,7 @@ class Parameterizer(tf.keras.Model):
     """
 
     if libsize_scaling:
-      outputs *= inputs.get('libsize')
+      outputs *= inputs.get(Constants.TENSOR_NAME_LIBSIZE)
     if exp_transform:
       outputs = tf.math.exp(outputs)
     
@@ -201,7 +202,7 @@ class Parameterizer(tf.keras.Model):
     inputs = cls.setup_inputs(input_dims, libsize_scaling, **kwargs)
     layer_class = ReflectionHandler.get_class_by_name(cls.__name__, 'layers/parameterizers')
     layer = layer_class(event_dims=event_dims, name='parameterizer', **kwargs)
-    outputs = layer(inputs.get('input'))
+    outputs = layer(inputs.get(Constants.TENSOR_NAME_X))
     outputs = cls.modify_outputs(
         inputs=inputs,
         outputs=outputs,

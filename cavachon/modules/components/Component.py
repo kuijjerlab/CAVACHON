@@ -49,6 +49,8 @@ class Component(tf.keras.Model):
     modality_names: List[Any],
     distribution_names: Mapping[str, str],
     z_prior_parameterizer: tf.keras.layers.Layer,
+    hierarchical_encoder: tf.keras.Model,
+    decoders: tf.keras.Model,
     name: str = 'component',
     **kwargs):
     """Constructor for Component. Should not be called directly most of 
@@ -58,15 +60,15 @@ class Component(tf.keras.Model):
     ----------
     inputs: Mapping[Any, tf.keras.Input]): 
         inputs for building tf.keras.Model using Tensorflow functional 
-        API. By defaults, expect to have keys ('z_hat_conditional', ),
-        (modality_name, Constants.TENSOR_NAME_X), and
-        (modality_name, Constants.LIBSIZE) (if appplicable).
+        API. By defaults, expect to have keys `modality_name`/matrix,
+        'z_conditional' (if applicable), 'z_hat_conditional' (if 
+        applicable) and `modality_name`/libsize (if appplicable).
     
     outputs: Mapping[Any, tf.Tensor]
         outputs for building tf.keras.Model using Tensorflow functional 
-        API. By defaults, the keys are (model_name, 'z'), 
-        (model_name, 'z_hat'), (model, 'z_parameters') and 
-        (modality_nanes, 'x_parameters').
+        API. By defaults, the keys are `model_name`/z, 
+        `model_name`/z_hat, `model_name`/z_parameters and 
+        `modality_names`/x_parameters.
 
     modality_names: str
       names of the modalities used in the component. 
@@ -91,12 +93,15 @@ class Component(tf.keras.Model):
     self.modality_names = modality_names
     self.distribution_names = distribution_names
     self.z_prior_parameterizer = z_prior_parameterizer
+    self.hierarchical_encoder = hierarchical_encoder
+    self.decoders = decoders
 
   @classmethod
   def setup_inputs(
       cls,
       modality_names: List[str],
       n_vars: Mapping[str, int],
+      z_conditional_dims: Optional[int] = None,
       z_hat_conditional_dims: Optional[int] = None,
       **kwargs) -> Tuple[Mapping[Any, tf.keras.Input]]:
     """Builder function for setting up inputs. Developers can overwrite 
@@ -113,6 +118,11 @@ class Component(tf.keras.Model):
         the modality names, and the values are the corresponding number
         of variables.
         
+    z_conditional_dims: int, optional
+        dimension of z from the components of the dependency. None if 
+        the component does not depends on any other components. 
+        Defaults to None.
+
     z_hat_conditional_dims: int, optional
         dimension of z_hat from the components of the dependency. None 
         if the component does not depends on any other components. 
@@ -130,24 +140,28 @@ class Component(tf.keras.Model):
 
     """
     inputs = dict()
-    hierarchical_encoder_inputs = dict()
 
     for modality_name in modality_names:
-      modality_key = (modality_name, Constants.TENSOR_NAME_X)
+      modality_key = f'{modality_name}/{Constants.TENSOR_NAME_X}'
       inputs.setdefault(
           modality_key,
           tf.keras.Input(
               shape=(n_vars.get(modality_name), ),
-              name=f'{modality_name}_matrix'))
+              name=f'{modality_name}/{Constants.TENSOR_NAME_X}'))
     
+    if z_conditional_dims is not None:
+      z_conditional = tf.keras.Input(
+          shape=(z_conditional_dims, ), 
+          name=Constants.MODULE_INPUTS_CONDITIONED_Z)
+      inputs.setdefault(Constants.MODULE_INPUTS_CONDITIONED_Z, z_conditional)
+
     if z_hat_conditional_dims is not None:
       z_hat_conditional = tf.keras.Input(
           shape=(z_hat_conditional_dims, ), 
-          name='z_hat_conditional')
-      inputs.setdefault(('z_hat_conditional', ), z_hat_conditional)
-      hierarchical_encoder_inputs.setdefault('z_hat_conditional', z_hat_conditional)
+          name=Constants.MODULE_INPUTS_CONDITIONED_Z_HAT)
+      inputs.setdefault(Constants.MODULE_INPUTS_CONDITIONED_Z_HAT, z_hat_conditional)
     
-    return inputs, hierarchical_encoder_inputs
+    return inputs
   
   @classmethod
   def setup_preprocessor(
@@ -188,10 +202,8 @@ class Component(tf.keras.Model):
 
     Returns
     -------
-    Tuple[Mapping[Any, tf.keras.Input]]:
-        the first element in the tuple is the inputs (for the entire
-        component) and the second element is the inputs for the 
-        HierarchicalEncoder.
+    tf.keras.Model
+        created preprocessor.
 
     """
     return Preprocessor.make(
@@ -263,7 +275,7 @@ class Component(tf.keras.Model):
               distribution_name=distribution_names.get(modality_name),
               n_vars=n_vars.get(modality_name),
               n_layers=n_decoder_layers.get(modality_name, default_n_decoder_layers),
-              name=f'{name}_{modality_name}'))
+              name=f'{name}/{modality_name}'))
     
     return decoders
 
@@ -307,7 +319,9 @@ class Component(tf.keras.Model):
   def setup_hierarchical_encoder(
       cls,
       n_latent_dims: int = 5,
-      z_hat_conditional_dims: Optional[int] = None,
+      is_conditioned_on_z: bool = False,
+      is_conditioned_on_z_hat: bool = False,
+      progressive_iterations: int = 5000,
       name: str = 'hiearchical_encoder',
       **kwargs) -> tf.keras.Model:
     """Builder function for setting up hierarchical encoder. Developers 
@@ -317,11 +331,18 @@ class Component(tf.keras.Model):
     ----------   
     n_latent_dims: int
         number of latent dimensions. Defaults to 5.
-    
-    z_hat_conditional_dims: int, optional
-        dimension of z_hat from the components of the dependency. None 
-        if the component does not depends on any other components. 
-        Defaults to None.
+
+    conditioned_on_z: bool, optional
+        use latent representation from the conditioned components.
+        Defaults to False.
+
+    conditioned_on_z_hat: bool, optional
+        use transformed latent representation (contains information of 
+        all ancestor of conditioned components) from the conditioned 
+        components. Defaults to False.
+
+    prorgressive_iterations: int, optional
+        total iterations for progressive training. Defaults to 5000.
 
     name: str, optional:
         Name for the tensorflow model. Defaults to 'encoder'.
@@ -335,9 +356,11 @@ class Component(tf.keras.Model):
         created hierarchical encoder.
 
     """
-    return HierarchicalEncoder.make(
+    return HierarchicalEncoder(
         n_latent_dims=n_latent_dims,
-        z_hat_conditional_dims=z_hat_conditional_dims,
+        is_conditioned_on_z=is_conditioned_on_z,
+        is_conditioned_on_z_hat=is_conditioned_on_z_hat,
+        progressive_step=progressive_iterations,
         name=name)
 
   @classmethod
@@ -411,14 +434,12 @@ class Component(tf.keras.Model):
   def setup_outputs(
       cls,
       inputs: Mapping[Any, tf.keras.Input],
-      hierarchical_encoder_inputs: Mapping[str, tf.keras.Input],
       modality_names: List[str],
       preprocessor: tf.keras.Model,
       encoder: tf.keras.Model,
       hierarchical_encoder: tf.keras.Model,
       z_sampler: Union[tf.keras.Model, tf.keras.layers.Layer],
       decoders: Mapping[str, tf.keras.Model],
-      name: str,
       **kwargs) -> Mapping[Any, tf.Tensor]:
     """Builder function for setting up outputs. Developers can overwrite 
     this function to create custom Component.
@@ -464,24 +485,37 @@ class Component(tf.keras.Model):
 
     """
     outputs = dict()
-    preprocessor_outputs = preprocessor(inputs)
+    hierarchical_encoder_inputs = dict()
+    preprocessor_inputs = dict()
+    preprocessor_inputs.update(inputs)
+    preprocessor_inputs.pop(Constants.MODULE_INPUTS_CONDITIONED_Z, None)
+    preprocessor_inputs.pop(Constants.MODULE_INPUTS_CONDITIONED_Z_HAT, None)
+    preprocessor_outputs = preprocessor(preprocessor_inputs)
     z_parameters = encoder(preprocessor_outputs.get(preprocessor.matrix_key))
     z = z_sampler(z_parameters)
-    hierarchical_encoder_inputs.setdefault('z', z)
+    hierarchical_encoder_inputs.setdefault(Constants.MODEL_OUTPUTS_Z, z)
+    if Constants.MODULE_INPUTS_CONDITIONED_Z in inputs:
+        hierarchical_encoder_inputs.setdefault(
+            Constants.MODULE_INPUTS_CONDITIONED_Z,
+            inputs.get(Constants.MODULE_INPUTS_CONDITIONED_Z))
+    if Constants.MODULE_INPUTS_CONDITIONED_Z_HAT in inputs:
+        hierarchical_encoder_inputs.setdefault(
+            Constants.MODULE_INPUTS_CONDITIONED_Z_HAT,
+            inputs.get(Constants.MODULE_INPUTS_CONDITIONED_Z_HAT))
     z_hat = hierarchical_encoder(hierarchical_encoder_inputs)
 
-    outputs.setdefault((name, 'z'), z)
-    outputs.setdefault((name, 'z_hat'), z_hat)
-    outputs.setdefault((name, 'z_parameters'), z_parameters)
+    outputs.setdefault(Constants.MODEL_OUTPUTS_Z, z)
+    outputs.setdefault(Constants.MODEL_OUTPUTS_Z_HAT, z_hat)
+    outputs.setdefault(Constants.MODEL_OUTPUTS_Z_PARAMS, z_parameters)
     
     for modality_name in modality_names:
       decoder_inputs = dict()
-      decoder_inputs.setdefault('input', z_hat)
-      libsize_key = (modality_name, Constants.TENSOR_NAME_LIBSIZE)
+      decoder_inputs.setdefault(Constants.TENSOR_NAME_X, z_hat)
+      libsize_key = f'{modality_name}/{Constants.TENSOR_NAME_X}/{Constants.TENSOR_NAME_LIBSIZE}'
       if libsize_key in preprocessor_outputs:
-        decoder_inputs.setdefault('libsize', preprocessor_outputs.get(libsize_key))
+        decoder_inputs.setdefault(Constants.TENSOR_NAME_LIBSIZE, preprocessor_outputs.get(libsize_key))
       x_parameters = decoders.get(modality_name)(decoder_inputs)
-      outputs.setdefault((modality_name, 'x_parameters'), x_parameters)
+      outputs.setdefault(f"{modality_name}/{Constants.MODEL_OUTPUTS_X_PARAMS}", x_parameters)
     
     return outputs
 
@@ -495,7 +529,9 @@ class Component(tf.keras.Model):
       n_latent_priors: int = 11,
       n_encoder_layers: int = 3,
       n_decoder_layers: Union[int, Mapping[str, int]] = 3,
+      z_conditional_dims: Optional[int] = None,
       z_hat_conditional_dims: Optional[int] = None,
+      progressive_iterations: int = 5000,
       name: str = 'component',
       **kwargs) -> tf.keras.Model:
     """Make the tf.keras.Model using the functional API of Tensorflow.
@@ -530,12 +566,20 @@ class Component(tf.keras.Model):
     n_decoder_layers: Union[int, Mapping[str, int]]
         number of decoder layers for each modality. If provided with a
         Mapping, the keys are the modality names, and the values are the
-        corresponding number of variables. Defaults to 3.
+        corresponding number of decoder layers. Defaults to 3.
     
+    z_conditional_dims: int, optional
+        dimension of z from the components of the dependency. None 
+        if the component does not depends on any other components. 
+        Defaults to None.
+
     z_hat_conditional_dims: int, optional
         dimension of z_hat from the components of the dependency. None 
         if the component does not depends on any other components. 
         Defaults to None.
+
+    prorgressive_iterations: int, optional
+        total iterations for progressive training. Defaults to 5000.
 
     name: str, optional:
         Name for the tensorflow model. Defaults to 'component'.
@@ -549,9 +593,10 @@ class Component(tf.keras.Model):
         created model using Tensorflow functional API.
 
     """
-    inputs, hierarchical_encoder_inputs = cls.setup_inputs(
+    inputs = cls.setup_inputs(
         modality_names = modality_names,
         n_vars = n_vars,
+        z_conditional_dims=z_conditional_dims,
         z_hat_conditional_dims = z_hat_conditional_dims,
         **kwargs)
 
@@ -571,7 +616,9 @@ class Component(tf.keras.Model):
 
     hierarchical_encoder = cls.setup_hierarchical_encoder(
         n_latent_dims = n_latent_dims,
-        z_hat_conditional_dims = z_hat_conditional_dims,
+        is_conditioned_on_z = z_conditional_dims is not None,
+        is_conditioned_on_z_hat = z_hat_conditional_dims is not None,
+        progressive_iterations = progressive_iterations,
         name = f'{name}_hierarchical_encoder',
         **kwargs)
 
@@ -595,14 +642,12 @@ class Component(tf.keras.Model):
 
     outputs = cls.setup_outputs(
         inputs = inputs,
-        hierarchical_encoder_inputs = hierarchical_encoder_inputs,
         modality_names = modality_names,
         preprocessor = preprocessor,
         encoder = encoder,
         hierarchical_encoder = hierarchical_encoder,
         z_sampler = z_sampler,
         decoders = decoders,
-        name = name,
         **kwargs)
 
     return cls(
@@ -611,6 +656,8 @@ class Component(tf.keras.Model):
         modality_names=modality_names,
         distribution_names=distribution_names,
         z_prior_parameterizer=z_prior_parameterizer,
+        hierarchical_encoder=hierarchical_encoder,
+        decoders=decoders,
         name=name,
         **kwargs)
 
@@ -629,12 +676,12 @@ class Component(tf.keras.Model):
     """
     if 'loss' not in kwargs:
       loss = OrderedDict()
-      kl_divergence_name = 'kl_divergence'
+      kl_divergence_name = Constants.MODEL_LOSS_KL_POSTFIX
       loss.setdefault(
           kl_divergence_name,
           KLDivergence(name=kl_divergence_name))
       for modality_name in self.modality_names:
-        negative_log_data_likelihood_name = f'{modality_name}_negative_log_data_likelihood'
+        negative_log_data_likelihood_name = f'{modality_name}/{Constants.MODEL_LOSS_DATA_POSTFIX}'
         loss.setdefault(
             negative_log_data_likelihood_name,
             NegativeLogDataLikelihood(
@@ -677,27 +724,30 @@ class Component(tf.keras.Model):
       results = self(data, training=True)
       y_true = dict()
       y_pred = dict()
-      kl_divergence_name = 'kl_divergence'
+      kl_divergence_name = Constants.MODEL_LOSS_KL_POSTFIX
       y_true.setdefault(
           kl_divergence_name ,
           self.z_prior_parameterizer(tf.ones((1, 1))))
 
+      z_key = Constants.MODEL_OUTPUTS_Z
+      z_params_key = Constants.MODEL_OUTPUTS_Z_PARAMS
+        
       y_pred.setdefault(
           kl_divergence_name ,
           tf.concat(
-              [results.get((self.name, 'z')), results.get((self.name, 'z_parameters'))],
+              [results.get(z_key), results.get(z_params_key)],
               axis=-1))
 
       for modality_name in self.modality_names:
-        negative_log_data_likelihood_name = f'{modality_name}_negative_log_data_likelihood'
-        modality_key = (modality_name, Constants.TENSOR_NAME_X)
+        negative_log_data_likelihood_name = f'{modality_name}/{Constants.MODEL_LOSS_DATA_POSTFIX}'
+        modality_key = f"{modality_name}/{Constants.TENSOR_NAME_X}"
         data = ToDense(modality_key)(data)
         y_true.setdefault(
             negative_log_data_likelihood_name,
             data.get(modality_key))
         y_pred.setdefault(
             negative_log_data_likelihood_name,
-            results.get((modality_name, 'x_parameters')))
+            results.get(f"{modality_name}/{Constants.MODEL_OUTPUTS_X_PARAMS}"))
 
       loss = self.compiled_loss(y_true, y_pred)
       gradients = tape.gradient(loss, self.trainable_variables)

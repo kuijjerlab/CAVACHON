@@ -1,3 +1,4 @@
+from cavachon.environment.Constants import Constants
 from cavachon.modules.parameterizers.Parameterizer import Parameterizer
 from typing import Mapping
 
@@ -101,7 +102,7 @@ class IndependentZeroInflatedNegativeBinomial(Parameterizer):
 
     logits, mean, dispersion = tf.split(outputs, 3, axis=-1)
     if libsize_scaling:
-      mean *= inputs.get('libsize')
+      mean *= inputs.get(Constants.TENSOR_NAME_LIBSIZE)
     if exp_transform:
       mean = tf.where(mean > 7., 7. * tf.ones_like(mean), mean)
       mean = tf.math.exp(mean) - 1.0

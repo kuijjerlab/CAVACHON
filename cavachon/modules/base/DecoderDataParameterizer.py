@@ -1,3 +1,4 @@
+from cavachon.environment.Constants import Constants
 from cavachon.utils.ReflectionHandler import ReflectionHandler
 from cavachon.utils.TensorUtils import TensorUtils
 from typing import Dict, Optional
@@ -51,7 +52,7 @@ class DecoderDataParameterizer(tf.keras.Model):
 
     self.backbone_network = TensorUtils.create_backbone_layers(
         n_layers,
-        name='backbone_network')
+        name=Constants.MODULE_BACKBONE)
 
     input_dims = 0
     for layer in self.backbone_network.layers[::-1]:
@@ -62,7 +63,7 @@ class DecoderDataParameterizer(tf.keras.Model):
     self.x_parameterizer = distribution_parameterizer.make(
         input_dims = input_dims,
         event_dims = n_vars,
-        name='x_parameterizer')
+        name=Constants.MODULE_X_PARAMETERIZER)
 
   def call(
       self,
@@ -73,9 +74,10 @@ class DecoderDataParameterizer(tf.keras.Model):
 
     Parameters
     ----------
-    inputs: tf.Tensor
-        inputs Tensor for the decoder, expect a single Tensor (by 
-        defaults, the z_hat outputs by HierarchicalEncoder)
+    inputs: Mapping[str, tf.Tensor]
+        inputs Tensors for the decoder, where keys are 'matrix' and 
+        'libsize' (if applicable). (by defaults, expect the outputs by 
+        HierarchicalEncoder)
 
     training: bool, optional
         whether to run the network in training mode. Defaults to False.
@@ -89,11 +91,14 @@ class DecoderDataParameterizer(tf.keras.Model):
         parameters for the data distributions.
     
     """
-    result = self.backbone_network(inputs.get('input'), training=training, mask=mask)
+    result = self.backbone_network(
+        inputs.get(Constants.TENSOR_NAME_X), training=training, mask=mask)
     x_parameterizer_inputs = dict()
-    x_parameterizer_inputs.setdefault('input', result)
+    x_parameterizer_inputs.setdefault(Constants.TENSOR_NAME_X, result)
     if self.x_parameterizer.libsize_scaling:
-      x_parameterizer_inputs.setdefault('libsize', inputs.get('libsize'))
+      x_parameterizer_inputs.setdefault(
+          Constants.TENSOR_NAME_LIBSIZE, 
+          inputs.get(Constants.TENSOR_NAME_LIBSIZE))
     result = self.x_parameterizer(x_parameterizer_inputs, training=training, mask=mask)
 
     return result

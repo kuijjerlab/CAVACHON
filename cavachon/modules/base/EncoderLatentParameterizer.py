@@ -1,3 +1,4 @@
+from cavachon.environment.Constants import Constants
 from cavachon.layers.parameterizers.MultivariateNormalDiag import MultivariateNormalDiag as MultivariateNormalDiagParameterizer
 from cavachon.utils.TensorUtils import TensorUtils
 from typing import Dict, Optional
@@ -33,10 +34,10 @@ class EncoderLatentParameterizer(tf.keras.Model):
     self.backbone_network = TensorUtils.create_backbone_layers(
         n_layers,
         reverse=True,
-        name='backbone_network')
+        name=Constants.MODULE_BACKBONE)
     self.z_parameterizer = MultivariateNormalDiagParameterizer(
         n_latent_dims,
-        name='z_parameterizer')
+        name=Constants.MODULE_Z_PARAMETERIZER)
     self.max_n_neurons = TensorUtils.max_n_neurons(self.backbone_network.layers)
 
   def call(
