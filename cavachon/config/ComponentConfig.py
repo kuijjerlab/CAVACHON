@@ -21,6 +21,11 @@ class ComponentConfig(ConfigMapping):
       names of the distributions for each modality. The keys are the
       names of the modalities, and the values are the corresponding 
       distribution names.
+  
+  n_vars: Mapping[str, int]
+      names of the distributions for each modality. The keys are the
+      names of the modalities, and the values are the number of 
+      variables.
 
   n_latent_dims: int, optional
       number of latent dimensions. Defaults to 5.
@@ -53,6 +58,7 @@ class ComponentConfig(ConfigMapping):
     self.conditioned_on: List[str] = list()
     self.modality_names: List[str] = list()
     self.distribution_names: Mapping[str, str] = dict()
+    self.n_vars: Mapping[str, int] = dict()
     self.n_latent_dims: int
     self.n_latent_priors: int
     self.n_encoder_layers: int
