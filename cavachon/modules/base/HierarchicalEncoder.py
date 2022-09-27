@@ -86,18 +86,19 @@ class HierarchicalEncoder(tf.keras.Model):
     
     """
 
-    z_hat = self.r_network(inputs.get(Constants.MODEL_OUTPUTS_Z))
+    z = inputs.get(Constants.MODEL_OUTPUTS_Z)
     concat_inputs = []
     if self.is_conditioned_on_z or self.is_conditioned_on_z_hat:
-      z_hat = self.progressive_scaler(z_hat)
       if self.is_conditioned_on_z:
         concat_inputs.append(inputs.get(Constants.MODULE_INPUTS_CONDITIONED_Z, None))
       if self.is_conditioned_on_z_hat:
         concat_inputs.append(inputs.get(Constants.MODULE_INPUTS_CONDITIONED_Z_HAT, None))
-    
-    concat_inputs.append(z_hat)
-    z_hat = tf.concat(concat_inputs, axis=-1)
-    z_hat = self.b_network(z_hat)
+      z = self.progressive_scaler(z)
+    else:
+      concat_inputs = [z]
+
+    z_tilde = self.r_network(tf.concat(concat_inputs, axis=-1))
+    z_hat = self.b_network(tf.concat([z, z_tilde], axis=-1))
     
     return z_hat
 
