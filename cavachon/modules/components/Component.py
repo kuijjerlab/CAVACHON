@@ -470,10 +470,6 @@ class Component(tf.keras.Model):
     decoders: Mapping[str, tf.keras.Model]
         decoders created using setup_decoders()
 
-    name: str
-        name used in the keys of output for 'z' (name, 'z'), 'z_hat' 
-        (name, 'z_hat') and 'z_parameter' (name, 'z_parameter').
-
     kwargs: Mapping[str, Any]
         additional parameters used for custom setup_outputs()
 
