@@ -11,9 +11,12 @@ class ComponentConfig(ConfigMapping):
   name: str
       name of the component.
   
-  conditioned_on: List[str]
-      names of the conditioned components.
+  conditioned_on_z: List[str]
+      names of the conditioned components (of z).
   
+  conditioned_on_z_hat: List[str]
+      names of the conditioned components (of z_hat).
+
   modality_names: List[str]
       names of modalities used in inputs and outputs.
 
@@ -55,7 +58,8 @@ class ComponentConfig(ConfigMapping):
     
     """
     self.name: str
-    self.conditioned_on: List[str] = list()
+    self.conditioned_on_z: List[str] = list()
+    self.conditioned_on_z_hat: List[str] = list()
     self.modality_names: List[str] = list()
     self.distribution_names: Mapping[str, str] = dict()
     self.n_vars: Mapping[str, int] = dict()
