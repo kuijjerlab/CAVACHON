@@ -1,1 +1,2 @@
+from .DifferentialAnalysis import DifferentialAnalysis
 from .InteractiveVisualization import InteractiveVisualization
