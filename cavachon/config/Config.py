@@ -72,7 +72,7 @@ class Config:
       default_n_latent_dims: int = 5,
       default_n_encoder_layers: int = 3,
       default_n_decoder_layers: int = 3,
-      default_n_progressive_epochs: int = 100) -> None:
+      default_n_progressive_epochs: int = 500) -> None:
     """Constructor for Config instance.
 
     Parameters
@@ -250,6 +250,7 @@ class Config:
 
       # Set default values if not specified in the config
       modality_config[Constants.CONFIG_FIELD_SAMPLE] = []
+      modality_config.setdefault(Constants.CONFIG_FIELD_MODALITY_H5AD, '')
       modality_config.setdefault(
           Constants.CONFIG_FIELD_MODALITY_DIST,
           Constants.DEFAULT_MODALITY_DISTRIBUTION.get(modality_type))
@@ -376,7 +377,7 @@ class Config:
       default_n_latent_dims: int = 5,
       default_n_encoder_layers: int = 3,
       default_n_decoder_layers: int = 3,
-      default_n_progressive_epochs: int = 100) -> None:
+      default_n_progressive_epochs: int = 500) -> None:
     """Setup model and component related config.
 
     Parameters
@@ -419,7 +420,7 @@ class Config:
     processed_component_config_mapping = dict()
     for i, component_config in enumerate(component_config_list):
       # Check required field
-      component_name = component_config.get('name', f"Component/{i:02d}")
+      component_name = component_config.get('name', f"component/{i:02d}")
       component_name = GeneralUtils.tensorflow_compatible_str(component_name)
       self.are_all_fields_in_mapping(
           Constants.CONFIG_FIELD_COMPONENT_REQUIRED,

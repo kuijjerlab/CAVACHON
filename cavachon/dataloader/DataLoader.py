@@ -82,7 +82,7 @@ class DataLoader:
       # if batch_effect colname is not specified for the current modality, use zero 
       # matrix as batch effect
       if issubclass(type(adata.uns), Mapping):
-        adata_config = adata.uns.get('cavachon/config', {})
+        adata_config = adata.uns.get('cavachon', {})
         batch_effect_colnames = adata_config.get(
             Constants.CONFIG_FIELD_SAMPLE_MODALITY_BATCH_COLNAMES,
             None)
@@ -149,7 +149,7 @@ class DataLoader:
     the MuData needs to be sorted in a way that the order of obs
     DataFrame needs to be the same. (2) the batch effect columns for 
     each modality need to be stored in
-    adata.uns['cavachon/config']['batch_effect_columns'] if the user 
+    adata.uns['cavachon']['batch_effect_columns'] if the user 
     wish to consider batch effect while using the model. 
 
     Parameters

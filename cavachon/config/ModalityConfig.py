@@ -21,7 +21,10 @@ class ModalityConfig(ConfigMapping):
   dist: str
       distribution name of the modality.
 
-  filter: FilterConfig
+  h5ad: str
+      filename to the h5ad (if not provided with samples)
+
+  filters: FilterConfig
       filter step configs for the modality.
 
   """
@@ -38,6 +41,7 @@ class ModalityConfig(ConfigMapping):
     self.samples: List[str] = list()
     self.type: str
     self.dist: str
-    self.filter: List[FilterConfig] = list()
+    self.h5ad: str
+    self.filters: List[FilterConfig] = list()
     super().__init__(config)
     

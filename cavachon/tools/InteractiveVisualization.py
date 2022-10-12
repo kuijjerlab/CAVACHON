@@ -28,7 +28,7 @@ class InteractiveVisualization:
       *args,
       **kwargs):
     
-    adata_name = adata.uns.get('cavachon/config', '').get('name', '')
+    adata_name = adata.uns.get('cavachon', '').get('name', '')
     if title is None:
       title = f'Z({adata_name})'
 

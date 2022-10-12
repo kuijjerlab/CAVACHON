@@ -77,7 +77,7 @@ class Modality(anndata.AnnData):
       ('batch_effect_colnames', batch_effect_colnames)
     ))
     cavachon_uns = OrderedDict((
-      ('cavachon/config', cavachon_config),
+      ('cavachon', cavachon_config),
     ))
     uns = kwargs.get('uns', cavachon_uns)
     uns.update(cavachon_uns)
