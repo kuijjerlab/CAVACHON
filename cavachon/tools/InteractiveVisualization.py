@@ -79,4 +79,7 @@ class InteractiveVisualization:
     fig.show()
     
     if filename:
-      fig.write_image(filename)
+      if filename.endswith('html'):
+        fig.write_html(filename)
+      else:
+        fig.write_image(filename)
