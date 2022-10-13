@@ -455,6 +455,8 @@ class Config:
       component_modality_names = list() 
       component_distribution_names = dict()
       component_n_decoder_layers = dict()
+      component_save_x = dict()
+      component_save_z = dict()
 
       # Setup modality names and decoder for the component
       for modality_config in component_modalities:
@@ -472,6 +474,12 @@ class Config:
         component_modality_names.append(modality_name)
         component_distribution_names.setdefault(modality_name, modality_dist)
         component_n_decoder_layers.setdefault(modality_name, modality_n_decoder_layer)
+        component_save_x.setdefault(
+            modality_name,
+            modality_config.get(Constants.CONFIG_FIELD_COMPONENT_MODALITY_SAVE_X, True))
+        component_save_z.setdefault(
+            modality_name,
+            modality_config.get(Constants.CONFIG_FIELD_COMPONENT_MODALITY_SAVE_Z, True))
 
       # Store the processed_component_config to component_name
       processed_component_config = dict()
@@ -503,6 +511,12 @@ class Config:
       processed_component_config.setdefault(
           Constants.CONFIG_FIELD_COMPONENT_N_DECODER_LAYERS,
           component_n_decoder_layers)
+      processed_component_config.setdefault(
+          Constants.CONFIG_FIELD_COMPONENT_MODALITY_SAVE_X,
+          component_save_x)
+      processed_component_config.setdefault(
+          Constants.CONFIG_FIELD_COMPONENT_MODALITY_SAVE_Z,
+          component_save_z)
 
       processed_component_config = ComponentConfig(processed_component_config)
       processed_component_config_mapping.setdefault(component_name, processed_component_config)

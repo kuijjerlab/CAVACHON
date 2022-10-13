@@ -1,4 +1,5 @@
 from cavachon.config.ComponentConfig import ComponentConfig
+from cavachon.dataloader.DataLoader import DataLoader
 from cavachon.environment.Constants import Constants
 from cavachon.layers.modifiers import ToDense
 from cavachon.losses.KLDivergence import KLDivergence
@@ -6,8 +7,11 @@ from cavachon.losses.NegativeLogDataLikelihood import NegativeLogDataLikelihood
 from cavachon.modules.components.Component import Component
 from cavachon.utils.GeneralUtils import GeneralUtils
 from cavachon.utils.TensorUtils import TensorUtils
-from typing import Any, Dict, List, Mapping, Iterable, Tuple, Union
+from tqdm import tqdm
+from typing import Any, List, Mapping, Tuple, Union
 
+import numpy as np
+import muon as mu
 import tensorflow as tf
 import warnings
 
@@ -308,6 +312,78 @@ class Model(tf.keras.Model):
         components=components,
         component_configs=component_configs)
 
+  def predict(
+      self, 
+      x: Union[Mapping[str, tf.Tensor], mu.MuData],
+      batch_size: int = None,
+      **kwargs):
+    """Predict based on Mapping[str, tf.Tensor] (with the same format constucted by the dataset
+    of DataLoader) or mu.MuData. If provided with mu.MuData, the predicted z and x_parameters will
+    be stored in the obsm of each modality.
+
+    Parameters
+    ----------
+    x: Union[Mapping[str, tf.Tensor], mu.MuData]
+        inputs.
+    
+    batch_size: int, optional
+        batch size. If provided with None, will automatically set to 1. Defaults to None.
+    
+    kwargs: Mapping[str, Any]
+        Additional parameters used to compile the model.
+
+    """
+    if batch_size is None:
+      batch_size = 1
+    if issubclass(type(x), mu.MuData):
+      outputs = dict()
+      use_which_component = dict()
+      field_save_x = Constants.CONFIG_FIELD_COMPONENT_MODALITY_SAVE_X
+      field_save_z = Constants.CONFIG_FIELD_COMPONENT_MODALITY_SAVE_Z
+      save_x = dict()
+      save_z = dict()
+      for component_config in self.component_configs:
+        component_name = component_config.name
+        outputs.setdefault(f"{component_name}/z", list())
+        modality_names = component_config.get(Constants.CONFIG_FIELD_COMPONENT_N_VARS).keys()
+        predict_x = False
+
+        for modality_name in modality_names:
+          if component_config.get(field_save_x).get(modality_name):
+            predict_x = True
+
+          use_which_component.setdefault(modality_name, [])
+          use_which_component.get(modality_name).append(component_name)
+          save_x.setdefault(
+              f'{component_name}/{modality_name}',
+              component_config.get(field_save_x).get(modality_name))
+          save_z.setdefault(
+              f'{component_name}/{modality_name}',
+              component_config.get(field_save_z).get(modality_name))
+        if predict_x:
+          outputs.setdefault(f"{component_name}/{modality_name}/x_parameters", list())
+
+      dataloader = DataLoader(x, batch_size=batch_size)
+      for batch in tqdm(dataloader):
+        result = self.predict_on_batch(batch)
+        for key in outputs:
+          outputs[key].append(result.get(key))
+      for key in outputs:
+        outputs[key] = np.vstack(outputs[key])
+      
+      for modality_name, component_names in use_which_component.items():
+        for component_name in component_names:
+          if save_z.get(f'{component_name}/{modality_name}'):
+            x.mod[modality_name].obsm[f'z_{component_name}'] = outputs.get(
+                f"{component_name}/z")
+          if save_x.get(f'{component_name}/{modality_name}'):
+            x.mod[modality_name].obsm[f'x_parameters_{component_name}'] = outputs.get(
+                f"{component_name}/{modality_name}/x_parameters")
+
+      return outputs
+    else:
+      return super.__predict__(x=x, batch_size=batch_size, *args, **kwargs)
+
   def compile(
       self,
       **kwargs) -> None:
@@ -412,3 +488,4 @@ class Model(tf.keras.Model):
     
     names = ['loss'] + [x.name for x in self.compiled_loss._losses]
     return {name: m.result() for name, m in zip(names, self.metrics)}
+  

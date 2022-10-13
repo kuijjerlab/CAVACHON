@@ -25,6 +25,20 @@ class ComponentConfig(ConfigMapping):
       names of the modalities, and the values are the corresponding 
       distribution names.
   
+  save_x: Mapping[str, bool]
+      names of the distributions for each modality. The keys are the
+      names of the modalities, and the values are wheather or not the
+      predicted x_parameters is save to the obsm of modality (with key 
+      'x_parameters_`name`').  Note that `x_parameters` will not be 
+      predicted by defaults if none of the modalities in the component 
+      set `save_x`.
+
+  save_z: Mapping[str, bool]
+      names of the distributions for each modality. The keys are the
+      names of the modalities, and the values are wheather or not the
+      predicted z is save to the obsm of modality (with key 
+      'z_`name`').
+
   n_vars: Mapping[str, int]
       names of the distributions for each modality. The keys are the
       names of the modalities, and the values are the number of 
@@ -62,6 +76,8 @@ class ComponentConfig(ConfigMapping):
     self.conditioned_on_z_hat: List[str] = list()
     self.modality_names: List[str] = list()
     self.distribution_names: Mapping[str, str] = dict()
+    self.save_x: Mapping[str, bool] = dict()
+    self.save_z: Mapping[str, bool] = dict()
     self.n_vars: Mapping[str, int] = dict()
     self.n_latent_dims: int
     self.n_latent_priors: int
