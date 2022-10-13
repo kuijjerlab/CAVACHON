@@ -96,7 +96,7 @@ class KLDivergence(tf.keras.losses.Loss):
     logpz = tf.expand_dims(dist_z.log_prob(z), -1)
 
     # shape: (batch, n_components)
-    py_z = tf.math.softmax(logpz_y + logpy)
+    py_z = tf.math.softmax(logpz_y + logpy - logpz)
     logpy_z = tf.math.log(py_z + 1e-7)      
     #logpy_z = logpz_y + logpy - logpz
     #py_z = tf.exp(logpy_z)
