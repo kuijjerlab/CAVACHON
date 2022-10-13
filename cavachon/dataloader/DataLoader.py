@@ -114,7 +114,7 @@ class DataLoader:
     for modality_name in modality_names:
       uns = self.mdata[modality_name].uns
       if issubclass(type(uns), Mapping):
-        config = uns.get('cavachon/config', {})
+        config = uns.get('cavachon', {})
         distribution_name = config.get('distribution', '')
         if not distribution_name:
           break

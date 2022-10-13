@@ -37,7 +37,7 @@ class MultiModality(muon.MuData):
         
     """
     if isinstance(data, Modality):
-      modality_name = data.uns.get('cavachon/config', {}).get('name', 'modality')
+      modality_name = data.uns.get('cavachon', {}).get('name', 'modality')
       data = dict((
           (modality_name, data),
       ))
