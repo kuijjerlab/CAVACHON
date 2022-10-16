@@ -1,0 +1,14 @@
+tensorflow==2.8.0
+tensorflow-probability==0.16.0
+ipykernel
+jupyterlab
+kaleido
+mlflow
+muon
+multimethod
+pandas
+plotly
+protobuf==3.20.0
+pylint
+scikit-learn
+seaborn

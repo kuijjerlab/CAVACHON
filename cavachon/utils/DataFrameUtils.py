@@ -3,7 +3,10 @@ import pandas as pd
 
 class DataFrameUtils:
   """DataFrameUtils
-  Utility functions for Pandas Dataframe and Series
+
+  Class containing multiple utility functions for pd.DataFrame or 
+  pd.Series.
+  
   """
 
   @staticmethod
@@ -13,16 +16,20 @@ class DataFrameUtils:
     number of unique values is larger than `threshold`, it is considered
     as a continuous variable.
 
-    Args:
-      data (pd.Series): data variable.
+    Parameters
+    ----------
+    data: pd.Series
+        pd.Series needs to be check.
 
-      threshold (float): threshold of proportion of the number of unique
-      values to determine if one variable is categorical or not. 
-      Defaults to 0.2.
+    threshold: float
+        threshold of proportion of the number of unique values to 
+        determine if one variable is categorical or not. Defaults to 
+        0.2.
 
-    Returns:
-      bool: Ture if the series is a categorical variable, otherwise 
-      False.
+    Returns
+    -------
+    bool:
+        Ture if the series is a categorical variable, otherwise False.
     """
     n_obs = data.size
     return len(np.unique(data)) < n_obs * threshold

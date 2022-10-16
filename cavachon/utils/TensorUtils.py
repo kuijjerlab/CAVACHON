@@ -1,16 +1,143 @@
 import numpy as np
 import pandas as pd
+import scipy
 import tensorflow as tf
 
 from cavachon.utils.DataFrameUtils import DataFrameUtils
-from scipy.sparse import csr_matrix
 from sklearn.preprocessing import LabelEncoder
-from typing import Dict, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 class TensorUtils:
   """TensorUtils
-  Utility functions for Tensorflow Tensor
+
+  Class containing multiple utility functions for tf.Tensor.
+
   """
+  @staticmethod
+  def max_n_neurons(layers: Iterable[tf.keras.layers.Layer]) -> int:
+    """Get the maximum number of neurons (of tf.keras.layers.Dense) in 
+    layers.
+
+    Parameters
+    ----------
+    layers: Iterable[tf.keras.layers.Layer]
+        layers in tf.keras.Model.
+    
+    Returns
+    -------
+    int:
+        the maximum number of neurons (of tf.keras.layers.Dense) in 
+        layers. Return 0 if no Dense layer in the layers.
+    
+    """
+    current_max = 0
+    for layer in layers:
+      if isinstance(layer, tf.keras.layers.Dense) and current_max < layer.units:
+        current_max = layer.units
+    return current_max
+
+  @staticmethod
+  def remove_nan_gradients(gradients: List[tf.Tensor], clip_value=0.1) -> List[tf.Tensor]:
+    """Replace nan, inf with 0 and perform gradient clipping for the 
+    gradients computed by tf.GradientTape.gradient().
+
+    Parameters
+    ----------
+    gradients: List[tf.Tensor]
+        gradients computed by tf.GradientTape.gradient()
+
+    clip_value: float, optional
+        clip values for gradient clipping. The resulting gradient will 
+        be in the range of [-clip_value, clip_value]
+    
+    Returns
+    -------
+    List[tf.Tensor]
+        processed gradients.
+    
+    """
+    for i, g in enumerate(gradients):
+      gradients[i] = tf.where(tf.math.is_nan(g), tf.zeros_like(g), g)
+      gradients[i] = tf.where(
+          tf.math.is_inf(gradients[i]),
+          tf.zeros_like(gradients[i]),
+          gradients[i])
+      gradients[i] = tf.where(
+          gradients[i] > clip_value,
+          clip_value * tf.ones_like(gradients[i]),
+          gradients[i])
+      gradients[i] = tf.where(
+          gradients[i] < -1 * clip_value,
+          -1 * clip_value * tf.ones_like(gradients[i]),
+          gradients[i])
+          
+    return gradients
+
+  @staticmethod
+  def create_backbone_layers(
+      n_layers: int = 3,
+      base_n_neurons: int = 128,
+      max_n_neurons: int = 1024,
+      rate: int = 2,
+      activation: str = 'elu',
+      reverse: bool = False,
+      name: Optional[str] = 'backbone_network') -> tf.keras.Model:
+    """Create tf.keras.Sequential models with tf.keras.layers.Dense and
+    tf.keras.layers.BatchNormalization(). The created dense layers would 
+    have number of neurons 
+    [`base_n_neurons`, `base_n_neurons`*`rate`, ...]. For instance, 
+    with default parameters, it creates layers of:
+    1. tf.keras.layers.Dense(128, activation='elu')
+    2. tf.keras.layers.BatchNormalization()
+    3. tf.keras.layers.Dense(256, activation='elu')
+    4. tf.keras.layers.BatchNormalization()
+    5. tf.keras.layers.Dense(512, activation='elu')
+    6. tf.keras.layers.BatchNormalization()
+
+    Parameters
+    ----------
+    n_layers: int, optional
+        number of layers. Defaults to 3.
+
+    base_n_neurons: int, optional
+        base number of neurons. Defaults to 128.
+    
+    max_n_neurons: int, optional
+        maximum number of neurons. Defaults to 1024.
+
+    rate: int, optional
+        increasing rate of number of neurons (see description of the 
+        function for more details). Defaults to 2.
+
+    activation: str, optional
+        activation functions in tf.keras.layers.Dense layer. Defaults 
+        to 'elu'.
+
+    reverse: bool, optional 
+        whether to decrease the number of neurons in later layers. 
+        Defaults to False.
+    
+    name: str, optional
+        name of the created tf.keras.Model. Defaults to 
+        'backbone_network'.
+
+    Returns
+    -------
+    tf.keras.Model
+        created tf.keras.Sequential model.
+
+    """
+
+    layers = []
+    for no_layer in range(0, n_layers - 1):
+      n_neurons = max(base_n_neurons * rate ** no_layer, max_n_neurons)
+      layers.append(tf.keras.layers.Dense(n_neurons, activation=activation))
+      layers.append(tf.keras.layers.BatchNormalization())
+    
+    if reverse:
+      layers.reverse()
+
+    return tf.keras.Sequential(layers, name=name)
 
   @staticmethod
   def create_tensor_from_df(
@@ -64,13 +191,19 @@ class TensorUtils:
   def create_one_hot_encoded_tensor(data: pd.Series) -> Tuple[tf.Tensor, LabelEncoder]:
     """Create a one hot encoded Tensor from a Series variable.
 
-    Args:
-      data (pd.Series): data variable.
+    Parameters
+    ----------
+    data: pd.Series
+        pd.Series of categorical variables to be transformed to one-hot
+        encoded tf.Tensor.
 
-    Returns:
-      Tuple[tf.Tensor, LabelEncoder]: the first element is the one-hot 
-      encoded Tensor, the second element is the LabelEncoder used to map
-      the categorical variable into scalar representation.
+    Returns
+    -------
+    Tuple[tf.Tensor, LabelEncoder]:
+        the first element is the one-hot encoded Tensor, the second 
+        element is the LabelEncoder used to map the categorical 
+        variable into scalar representation.
+    
     """
     encoder = LabelEncoder()
     encoded_array = encoder.fit_transform(data)
@@ -80,16 +213,21 @@ class TensorUtils:
     return encoded_tensor, encoder
 
   @staticmethod
-  def csr_to_sparse_tensor(csr_matrix: csr_matrix) -> tf.SparseTensor:
-    """Create a SparseTensor out of a scipy csr matrix.
+  def spmatrix_to_sparse_tensor(spmatrix: scipy.sparse.spmatrix) -> tf.SparseTensor:
+    """Create a SparseTensor out of a scipy sparse matrix.
 
-    Args:
-      matrix (csr_matrix): the provided matrix
+    Parameters
+    ----------
+    spmatrix: sparse matrix
+        the provided matrix
 
-    Returns:
-      tf.SparseTensor: the created SparseTensor.
+    Returns
+    -------
+    tf.SparseTensor:
+        the created SparseTensor.
+    
     """
-    coo_matrix = csr_matrix.tocoo()
+    coo_matrix = spmatrix.tocoo()
     indices = np.mat([coo_matrix.row, coo_matrix.col]).transpose()
     sparse_tensor = tf.SparseTensor(indices, coo_matrix.data, coo_matrix.shape)
     return tf.cast(sparse_tensor, tf.float32)
