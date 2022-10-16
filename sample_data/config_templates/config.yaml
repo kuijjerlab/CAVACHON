@@ -1,0 +1,38 @@
+io: 
+  datadir: ${DATASET DIRECTORY}
+model:
+  name: CAVACHON
+  components:
+    - name: ATAC Component
+      modalities:
+        - name: ATAC
+          n_decoder_layers: 3
+      n_encoder_layers: 3
+      n_latent_dims: 30
+      n_progressive_epochs: 1
+      max_n_epochs: 1000
+    - name: RNA Component
+      conditioned_on_z_hat: 
+        - ATAC Component
+      modalities:  
+        - name: RNA
+          n_decoder_layers: 3
+      n_encoder_layers: 3
+      n_latent_dims: 30
+      n_progressive_epochs: 500
+      max_n_epochs: 1000
+  training:
+    optimizer:
+      name: adam
+      learning_rate: 5e-4
+  dataset:
+    batch_size: 512
+modalities:
+  - name: RNA Modality
+    type: RNA
+    dist: IndependentZeroInflatedNegativeBinomial
+    h5ad: ${RNA H5AD File}
+  - name: ATAC Modality
+    type: ATAC
+    dist: IndependentBernoulli
+    h5ad: ${ATAC H5AD File}
