@@ -12,3 +12,4 @@ protobuf==3.20.0
 pylint
 scikit-learn
 seaborn
+gseapy

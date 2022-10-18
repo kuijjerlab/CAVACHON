@@ -30,7 +30,7 @@ logpy_z = analysis.compute_cluster_probability(modality='RNA_Modality', componen
 knn = analysis.compute_neighbors_with_same_annotations(modality='RNA_Modality' 
     use_cluster='cluster_RNA_Component', use_rep='z_RNA_Component')
 ```
-`logpy_z`: probability of sample `i` being assigned to cluster `j` given the (maximum likelihood estimation of) latent representation z.
+`logpy_z`: log-probability of sample `i` being assigned to cluster `j` given the (maximum likelihood estimation of) latent representation z.
 ```
 array([[ -3.9341083 , -10.776552  ,  -0.5897913 , ...,  -3.9447799 ,
          -6.0016036 ,  -2.4596543 ],
@@ -93,6 +93,15 @@ Slc32a1                  0.440989  0.559011 -0.237149  0.237149
 Gm13688                  0.442711  0.557289 -0.230168  0.230168
 
 [15637 rows x 4 columns]
+```
+### Enrichment Analysis
+```python
+import gseapy
+
+gene_sets = gseapy.get_library(name='KEGG_2019_Mouse', organism='Mouse')
+prerank = degs['K(A>B|Z)']
+prerank.index = prerank.index.str.upper()
+gseapy.prerank(rnk=prerank, gene_sets=gene_sets, outdir='enrichment_analysis')
 ```
 
 
