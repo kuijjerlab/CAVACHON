@@ -82,6 +82,7 @@ class Constants:
   CONFIG_FIELD_COMPONENT_CONDITION_Z_HAT = 'conditioned_on_z_hat'
   CONFIG_FIELD_COMPONENT_N_LATENT_DIMS = 'n_latent_dims'
   CONFIG_FIELD_COMPONENT_N_VARS = 'n_vars'
+  CONFIG_FIELD_COMPONENT_N_VARS_BATCH = 'n_vars_batch_effect'
   CONFIG_FIELD_COMPONENT_N_PRIORS = 'n_priors'
   CONFIG_FIELD_COMPONENT_N_ENCODER_LAYERS = 'n_encoder_layers'
   CONFIG_FIELD_COMPONENT_N_DECODER_LAYERS = 'n_decoder_layers'

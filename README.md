@@ -1,5 +1,6 @@
 # CAVACHON (Under Development)
-**C**ell cluster **A**nalysis with **V**ariational **A**utoencoder using **C**onditional **H**ierarchy **Of** latent representio**N** is the Tensorflow implementation of the research "_Using hierarchical variational autoencoders to incorporate conditional independent priors for paired single-cell multi-omics data integration_" by PH Hsieh, RX Hsiao, T Belova, KT Ferenc, A Mathelier, R Burkholz, CY Chen, GK Sandve, ML Kuijjer. (NeurIPS LMRL Workshop 2022 Under Review)
+**C**ell cluster **A**nalysis with **V**ariational **A**utoencoder using **C**onditional **H**ierarchy **Of** latent representio**N** is the Tensorflow implementation of the research "_Using hierarchical variational autoencoders to incorporate conditional independent priors for paired single-cell multi-omics data integration_" (NeurIPS LMRL Workshop 2022 Under Review)
+<!--by PH Hsieh, RX Hsiao, T Belova, KT Ferenc, A Mathelier, R Burkholz, CY Chen, GK Sandve, ML Kuijjer.-->
 
 ## Installation
 ```
@@ -94,7 +95,7 @@ Gm13688                  0.442711  0.557289 -0.230168  0.230168
 
 [15637 rows x 4 columns]
 ```
-### Enrichment Analysis
+### Gene Set Enrichment Analysis (GSEA)
 ```python
 import gseapy
 
@@ -156,7 +157,6 @@ Create a new class that inherent either the `cavachon.model.Model` or `cavachon.
 ## Todos
 * GSEA Analysis
 * Command Line Execution
-* Batch Correction
 * Publish to PyPI
 * Add Distributions
   * Independent Poisson distributions
@@ -164,3 +164,4 @@ Create a new class that inherent either the `cavachon.model.Model` or `cavachon.
   * Independent Negative Binomial Distributions
   * Independent Gaussian Distributions
 * Implement weighted importance or mixture-of-experts in the components.
+

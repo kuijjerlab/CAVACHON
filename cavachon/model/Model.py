@@ -79,6 +79,7 @@ class Model(tf.keras.Model):
       cls,
       modality_names: List[str],
       n_vars: Mapping[str, int],
+      n_vars_batch_effect: Mapping[str, int],
       **kwargs) -> Mapping[Any, tf.keras.Input]:
     """Builder function for setting up inputs. Developers can overwrite 
     this function to create custom Model.
@@ -94,6 +95,12 @@ class Model(tf.keras.Model):
         the modality names, and the values are the corresponding number
         of variables.
     
+    n_vars_batch_effect: Mapping[str, int]
+        number of variables for the batch effect tensor. It should 
+        be the size of last dimensions of batch effect Tensor. The keys 
+        are the modality names, and the values are the corresponding 
+        number of variables.
+    
     kwargs: Mapping[str, Any]
         additional parameters used for custom setup_inputs()
 
@@ -107,12 +114,18 @@ class Model(tf.keras.Model):
     """
     inputs = dict()
     for modality_name in modality_names:
-      modality_key = f'{modality_name}/{Constants.TENSOR_NAME_X}'
+      modality_matrix_key = f'{modality_name}/{Constants.TENSOR_NAME_X}'
+      modality_batch_key = f'{modality_name}/{Constants.TENSOR_NAME_BATCH}'
       inputs.setdefault(
-          modality_key,
+          modality_matrix_key,
           tf.keras.Input(
               shape=(n_vars.get(modality_name), ),
               name=f'{modality_name}/{Constants.TENSOR_NAME_X}'))
+      inputs.setdefault(
+          modality_batch_key,
+          tf.keras.Input(
+              shape=(n_vars_batch_effect.get(modality_name), ),
+              name=f'{modality_name}/{Constants.TENSOR_NAME_BATCH}'))
 
     return inputs
 
@@ -149,12 +162,14 @@ class Model(tf.keras.Model):
     modality_names = set()
     distributions = dict()
     n_vars = dict()
+    n_vars_batch_effect = dict()
     for component_config in component_configs:
       modality_names = modality_names.union(
           set(component_config.get(Constants.CONFIG_FIELD_COMPONENT_MODALITY_NAMES)))
       distributions.update(
           component_config.get(Constants.CONFIG_FIELD_COMPONENT_MODALITY_DIST_NAMES))
       n_vars.update(component_config.get(Constants.CONFIG_FIELD_COMPONENT_N_VARS))
+      n_vars_batch_effect.update(component_config.get('n_vars_batch_effect'))
       component_name = component_config.get('name')
 
       conditioned_on_keys = [
@@ -180,7 +195,7 @@ class Model(tf.keras.Model):
               conditional_dims)
       components.setdefault(component_name, Component.make(**component_config))
   
-    return components, component_configs, modality_names, n_vars
+    return components, component_configs, modality_names, n_vars, n_vars_batch_effect
 
   @classmethod
   def setup_outputs(
@@ -221,9 +236,11 @@ class Model(tf.keras.Model):
       component_name = component_config.get('name')
       component = components.get(component_name)
       for modality_name in component.modality_names:
-        modality_key = f"{modality_name}/{Constants.TENSOR_NAME_X}"
-        component_inputs.setdefault(modality_key, inputs.get(modality_key))
-        
+        modality_matrix_key = f"{modality_name}/{Constants.TENSOR_NAME_X}"
+        modality_batch_key = f'{modality_name}/{Constants.TENSOR_NAME_BATCH}'
+        component_inputs.setdefault(modality_matrix_key, inputs.get(modality_matrix_key))
+        component_inputs.setdefault(modality_batch_key, inputs.get(modality_batch_key))
+
       conditioned_on_keys = [
         Constants.MODULE_INPUTS_CONDITIONED_Z,
         Constants.MODULE_INPUTS_CONDITIONED_Z_HAT
@@ -290,13 +307,14 @@ class Model(tf.keras.Model):
         created model using Tensorflow functional API.
 
     """
-    components, component_configs, modality_names, n_vars = cls.setup_components(
+    components, component_configs, modality_names, n_vars, n_vars_batch_effect = cls.setup_components(
         component_configs = component_configs,
         **kwargs)
 
     inputs = cls.setup_inputs(
         modality_names = modality_names,
         n_vars = n_vars,
+        n_vars_batch_effect = n_vars_batch_effect,
         **kwargs)
 
     outputs = cls.setup_outputs(

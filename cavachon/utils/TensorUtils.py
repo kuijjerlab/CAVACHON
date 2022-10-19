@@ -180,6 +180,7 @@ class TensorUtils:
       else:
         # if the column is a continous variable, 
         tensor = tf.reshape(tf.convert_to_tensor(coldata, tf.float32), (-1, 1))
+        encoder_dict.setdefault(colname, None)
         tensor_list.append(tensor)
     
     if len(tensor_list) == 0:
