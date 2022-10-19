@@ -11,19 +11,64 @@ import scanpy
 import tensorflow as tf
 
 class ClusterAnalysis:
+  """ClusterAnalysis
+
+  Cluster analysis including online multi-facet (soft) clustering, 
+  K-nearest neighbor analysis.
+
+  Attibutes
+  ---------
+  mdata: muon.MuData
+      the MuData for analysis.
+
+  model: tf.keras.Model
+      the trained generative model.
+
+  """
   def __init__(
       self,
       mdata: mu.MuData,
       model: tf.keras.Model):
+    """Constructor for ClusterAnalysis
+
+    Parameters
+    ----------
+    mdata: muon.MuData
+        the MuData for analysis.
+
+    model: tf.keras.Model
+        the trained generative model.
+    
+    """
     self.mdata = mdata
     self.model = model
 
-  def compute_cluster_probability(
+  def compute_cluster_log_probability(
       self,
       modality: str,
       component: str,
       batch_size: int = 128) -> np.array:
+    """Compute the log probability of a sample being assingned to each
+    cluster in the latent space of the specified component.
 
+    Parameters
+    ----------
+    modality: str
+        the result will be stored in the obs and obsm of this modality
+        in the self.mdata.
+
+    component : str
+        which latent space of the component to used for the clustering.
+
+    batch_size : int, optional
+        batch size used for the forward pass. Defaults to 128
+
+    Returns
+    -------
+    np.array
+        logpy_z, the log probability of a sample `i` being assigned to 
+        each cluster `j`. 
+    """
     z_prior_parameterizer = self.model.components[component].z_prior_parameterizer
     z_prior_parameters = tf.squeeze(z_prior_parameterizer(tf.ones((1, 1))))
     dist_z_y = MultivariateNormalDiag.from_parameterizer_output(z_prior_parameters[..., 1:])  
@@ -52,6 +97,39 @@ class ClusterAnalysis:
       use_cluster: str,
       use_rep: str,
       n_neighbors_sequence: Sequence[int] = list(range(5, 25))) -> pd.DataFrame:
+    """Perform K-nearest neighbor analysis.
+
+    Parameters
+    ----------
+    modality: str
+        the modality to used.
+    
+    use_cluster: str
+        the column name of the clusters in the obs of modality.
+    
+    use_rep: str
+        the key of obsm of modality to used to compute the distance 
+        within and between clusters
+    
+    n_neighbors_sequence: Sequence[int], optional
+        the number of neighbors to be analyzed, Defaults to 
+        list(range(5, 25))
+
+    Returns
+    -------
+    pd.DataFrame
+        analysis result for K-nearest neighbor. The DataFrame contains
+        3 columns, the first column specify the proportion of KNN 
+        samples with the same cluster, the second is the number of 
+        neighbors (K), the third column is the cluster identifiers.
+
+    Raises
+    ------
+    KeyError
+        if use_cluster is not in the obs of the modality in self.mdata.
+        (please perform compute_cluster_log_probability first for 
+        unsupervised clustering).
+    """
     if use_cluster not in self.mdata.mod[modality].obs:
       message = f'{use_cluster} not in obs DataFrame of the modality.'
       raise KeyError(message)

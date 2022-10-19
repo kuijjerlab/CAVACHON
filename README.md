@@ -27,7 +27,7 @@ workflow.run()
 from cavachon.tools import ClusterAnalysis
 
 analysis = ClusterAnalysis(workflow.multi_modalities, workflow.model)
-logpy_z = analysis.compute_cluster_probability(modality='RNA_Modality', component='RNA_Component')
+logpy_z = analysis.compute_cluster_log_probability(modality='RNA_Modality', component='RNA_Component')
 knn = analysis.compute_neighbors_with_same_annotations(modality='RNA_Modality' 
     use_cluster='cluster_RNA_Component', use_rep='z_RNA_Component')
 ```
@@ -79,7 +79,7 @@ degs = analysis(group_a_index=index_a, group_b_index=index_b, component='RNA_Com
 ```
 `degs`: summary table of differentially expressed analysis using Bayesian factor.
 ```
-                         P(A>B|Z)  P(B>A|Z)  K(A>B|Z)  K(A<B|Z)
+                         P(A>B|Z)  P(B>A|Z)  K(A>B|Z)  K(B>A|Z)
 SNARE-Seq_RNA:GeneNames                                        
 0610007P14Rik            0.383407  0.616593 -0.475114  0.475114
 0610009B22Rik            0.401319  0.598681 -0.399974  0.399974
