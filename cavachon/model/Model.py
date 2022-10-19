@@ -400,7 +400,7 @@ class Model(tf.keras.Model):
 
       return outputs
     else:
-      return super.__predict__(x=x, batch_size=batch_size, *args, **kwargs)
+      return super.__predict__(x=x, batch_size=batch_size, **kwargs)
 
   def compile(
       self,
