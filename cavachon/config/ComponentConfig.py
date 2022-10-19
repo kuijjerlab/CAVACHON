@@ -40,9 +40,16 @@ class ComponentConfig(ConfigMapping):
       'z_`name`').
 
   n_vars: Mapping[str, int]
-      names of the distributions for each modality. The keys are the
-      names of the modalities, and the values are the number of 
-      variables.
+      number of variables for the inputs data distribution. It should 
+      be the size of last dimensions of inputs Tensor. The keys are 
+      the modality names, and the values are the corresponding number
+      of variables.
+    
+  n_vars_batch_effect: Mapping[str, int]
+      number of variables for the batch effect tensor. It should 
+      be the size of last dimensions of batch effect Tensor. The keys 
+      are the modality names, and the values are the corresponding 
+      number of variables.
 
   n_latent_dims: int, optional
       number of latent dimensions. Defaults to 5.
@@ -79,6 +86,7 @@ class ComponentConfig(ConfigMapping):
     self.save_x: Mapping[str, bool] = dict()
     self.save_z: Mapping[str, bool] = dict()
     self.n_vars: Mapping[str, int] = dict()
+    self.n_vars_batch_effect: Mapping[str, int] = dict()
     self.n_latent_dims: int
     self.n_latent_priors: int
     self.n_encoder_layers: int

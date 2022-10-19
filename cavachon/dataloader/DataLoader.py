@@ -21,15 +21,20 @@ class DataLoader:
   batch_effect_encoder: Dict[str, LabelEncoder]
       the encoders used to create one-hot encoded batch effect tensor. 
       The keys of the dictionary are formatted as 
-      `{modality}:{obs_column}`. The LabelEncoder stored the mapping 
+      `{modality}/{obs_column}`. The LabelEncoder stored the mapping 
       between categorical batch effect variables and the numerical 
       representation.
+
+  n_vars_batch_effect: Dict[str, int]
+      the number of variables for the batch effect tensor. The keys are
+      the modality names, the values are the numbers of variables of 
+      the corresponding batch effect tensor.
 
   dataset: tf.data.Dataset
       Tensorflow Dataset created from the MuData. Can be used to 
       train/test/validate the model. The field of the dataset includes: 
-      1. `modality_name`/matrix (tf.SparseTensor) and 
-      2. `modality_name`/batch_effect (tf.Tensor)
+      1. `{modality_name}`/matrix (tf.SparseTensor) and 
+      2. `{modality_name}`/batch_effect (tf.Tensor)
 
   mdata: mu.MuData
       (single-cell) multi-omics data used to create the dataset.
@@ -52,7 +57,8 @@ class DataLoader:
     batch_size: int, optional
         batch size used to create Iterator of dataset. Defaults to 128.
     """
-    self.batch_effect_encoder: Dict[str, Dict[str, LabelEncoder]] = defaultdict(dict)
+    self.batch_effect_encoder: Dict[str, LabelEncoder] = dict()
+    self.n_vars_batch_effect: Dict[str, int] = dict()
     self.batch_size: int = batch_size
     self.mdata: mu.MuData = mdata
     self.dataset: Optional[tf.data.Dataset] = None
@@ -70,8 +76,8 @@ class DataLoader:
     -------
     tf.data.Dataset:
         created Dataset. The field of the dataset includes: 
-        1. (`modality`, 'matrix') (tf.SparseTensor) and 
-        2. (`modality`, 'batch_effect') (tf.Tensor)
+        1. `modality`/'matrix': (tf.SparseTensor)
+        2. `modality`/'batch_effect': (tf.Tensor)
     """
     tensor_mapping = dict()
     modality_names = self.mdata.mod.keys()
@@ -79,8 +85,8 @@ class DataLoader:
       adata = self.mdata[modality_name]
       data_tensor = TensorUtils.spmatrix_to_sparse_tensor(adata.X)
 
-      # if batch_effect colname is not specified for the current modality, use zero 
-      # matrix as batch effect
+      # if the batch effect colnames is not in adata.uns['cavachon'], 
+      # assumes there is no batch effect.      
       if issubclass(type(adata.uns), Mapping):
         adata_config = adata.uns.get('cavachon', {})
         batch_effect_colnames = adata_config.get(
@@ -90,12 +96,24 @@ class DataLoader:
         batch_effect_colnames = None
 
       if (batch_effect_colnames is None or len(batch_effect_colnames) == 0):
+        # if batch_effect colname is not specified for the current 
+        # modality, use zero matrix as batch effect
         batch_effect_tensor = tf.zeros((adata.n_obs, 1))
+        self.n_vars_batch_effect.setdefault(modality_name, 1)
       else:
+        # otherwise, create one-hot encoding tensor for categorical 
+        # batch effect, single vector for continuous batch effect.
+        self.n_vars_batch_effect.setdefault(modality_name, 0)
         batch_effect_tensor, encoder_mapping = TensorUtils.create_tensor_from_df(
             adata.obs, batch_effect_colnames)
         for colnames, encoder in encoder_mapping.items():
-          self.batch_effect_encoder[modality_name][colnames] = encoder
+          self.batch_effect_encoder[f'{modality_name}/{colnames}'] = encoder
+          if encoder is not None:
+            # categorical batch effect
+            self.n_vars_batch_effect[modality_name] += len(encoder.classes_)
+          else:
+            # continuous batch effect
+            self.n_vars_batch_effect[modality_name] += 1
 
       tensor_mapping.setdefault(
           f"{modality_name}/{Constants.TENSOR_NAME_X}",

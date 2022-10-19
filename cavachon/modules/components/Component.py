@@ -101,6 +101,7 @@ class Component(tf.keras.Model):
       cls,
       modality_names: List[str],
       n_vars: Mapping[str, int],
+      n_vars_batch_effect: Mapping[str, int],
       z_conditional_dims: Optional[int] = None,
       z_hat_conditional_dims: Optional[int] = None,
       **kwargs) -> Tuple[Mapping[Any, tf.keras.Input]]:
@@ -117,6 +118,12 @@ class Component(tf.keras.Model):
         be the size of last dimensions of inputs Tensor. The keys are 
         the modality names, and the values are the corresponding number
         of variables.
+    
+    n_vars_batch_effect: Mapping[str, int]
+        number of variables for the batch effect tensor. It should 
+        be the size of last dimensions of batch effect Tensor. The keys 
+        are the modality names, and the values are the corresponding 
+        number of variables.
         
     z_conditional_dims: int, optional
         dimension of z from the components of the dependency. None if 
@@ -142,12 +149,18 @@ class Component(tf.keras.Model):
     inputs = dict()
 
     for modality_name in modality_names:
-      modality_key = f'{modality_name}/{Constants.TENSOR_NAME_X}'
+      modality_matrix_key = f'{modality_name}/{Constants.TENSOR_NAME_X}'
+      modality_batch_key = f'{modality_name}/{Constants.TENSOR_NAME_BATCH}'
       inputs.setdefault(
-          modality_key,
+          modality_matrix_key,
           tf.keras.Input(
               shape=(n_vars.get(modality_name), ),
               name=f'{modality_name}/{Constants.TENSOR_NAME_X}'))
+      inputs.setdefault(
+          modality_batch_key,
+          tf.keras.Input(
+              shape=(n_vars_batch_effect.get(modality_name), ),
+              name=f'{modality_name}/{Constants.TENSOR_NAME_BATCH}'))
     
     if z_conditional_dims is not None:
       z_conditional = tf.keras.Input(
@@ -486,9 +499,21 @@ class Component(tf.keras.Model):
     preprocessor_inputs.update(inputs)
     preprocessor_inputs.pop(Constants.MODULE_INPUTS_CONDITIONED_Z, None)
     preprocessor_inputs.pop(Constants.MODULE_INPUTS_CONDITIONED_Z_HAT, None)
+
+    batch_effect = list()
+    for modality_name in modality_names:
+      modality_batch_key = f'{modality_name}/{Constants.TENSOR_NAME_BATCH}'
+      preprocessor_inputs.pop(modality_batch_key, None)
+      batch_effect.append(inputs.get(modality_batch_key))
+    batch_effect = tf.concat(batch_effect, axis=-1)
+
     preprocessor_outputs = preprocessor(preprocessor_inputs)
-    z_parameters = encoder(preprocessor_outputs.get(preprocessor.matrix_key))
+    encoder_inputs = tf.concat(
+        [preprocessor_outputs.get(preprocessor.matrix_key), batch_effect],
+        axis=-1)
+    z_parameters = encoder(encoder_inputs)
     z = z_sampler(z_parameters)
+
     hierarchical_encoder_inputs.setdefault(Constants.MODEL_OUTPUTS_Z, z)
     if Constants.MODULE_INPUTS_CONDITIONED_Z in inputs:
         hierarchical_encoder_inputs.setdefault(
@@ -505,8 +530,11 @@ class Component(tf.keras.Model):
     outputs.setdefault(Constants.MODEL_OUTPUTS_Z_PARAMS, z_parameters)
     
     for modality_name in modality_names:
+      modality_batch_key = f'{modality_name}/{Constants.TENSOR_NAME_BATCH}'
       decoder_inputs = dict()
-      decoder_inputs.setdefault(Constants.TENSOR_NAME_X, z_hat)
+      decoder_inputs.setdefault(
+          Constants.TENSOR_NAME_X,
+          tf.concat([z_hat, inputs.get(modality_batch_key)], axis=-1))
       libsize_key = f'{modality_name}/{Constants.TENSOR_NAME_X}/{Constants.TENSOR_NAME_LIBSIZE}'
       if libsize_key in preprocessor_outputs:
         decoder_inputs.setdefault(Constants.TENSOR_NAME_LIBSIZE, preprocessor_outputs.get(libsize_key))
@@ -521,6 +549,7 @@ class Component(tf.keras.Model):
       modality_names: List[str],
       distribution_names: Mapping[str, str],
       n_vars: Mapping[str, int],
+      n_vars_batch_effect: Mapping[str, int],
       n_latent_dims: int = 5,
       n_latent_priors: int = 11,
       n_encoder_layers: int = 3,
@@ -547,6 +576,12 @@ class Component(tf.keras.Model):
         be the size of last dimensions of inputs Tensor. The keys are 
         the modality names, and the values are the corresponding number
         of variables.
+    
+    n_vars_batch_effect: Mapping[str, int]
+        number of variables for the batch effect tensor. It should 
+        be the size of last dimensions of batch effect Tensor. The keys 
+        are the modality names, and the values are the corresponding 
+        number of variables.
 
     n_latent_dims: int, optional
         number of latent dimensions. Defaults to 5.
@@ -592,6 +627,7 @@ class Component(tf.keras.Model):
     inputs = cls.setup_inputs(
         modality_names = modality_names,
         n_vars = n_vars,
+        n_vars_batch_effect = n_vars_batch_effect,
         z_conditional_dims=z_conditional_dims,
         z_hat_conditional_dims = z_hat_conditional_dims,
         **kwargs)

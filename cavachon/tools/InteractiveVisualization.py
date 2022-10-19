@@ -5,6 +5,7 @@ from typing import Optional, Union, Sequence
 import anndata
 import muon as mu
 import pandas as pd
+import plotly
 import plotly.express as px
 import plotly.graph_objects as go
 import scanpy
@@ -22,8 +23,33 @@ class InteractiveVisualization:
       x: str,
       y: str,
       group: Optional[str] = None,
-      *args, **kwargs):
+      **kwargs) -> plotly.graph_objs._figure.Figure:
+    """Create interactive barplot.
 
+    Parameters
+    ----------
+    data: pd.DataFrame
+        input data.
+    
+    x: str
+        column names in the data used as variable in X-axis.
+    
+    y: str
+        column names in the data used as variable in Y-axis.
+
+    group: Optional[str], optional
+        column names in the data used to color code the groups. 
+        Defaults to None.
+    
+    **kwargs: Optional[Mapping[str, Any]], optional
+        additional arguments for fig.update_layout.
+
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+
+    """
     if group:
       unique_groups = data[group].value_counts().sort_index().index
       fig = go.Figure()
@@ -35,7 +61,7 @@ class InteractiveVisualization:
             name=subset,
             x=means.index, y=means,
             error_y=dict(type='data', array=sem)))
-      fig.update_layout(barmode='group', *args, **kwargs)
+      fig.update_layout(barmode='group', **kwargs)
     else:
       means = data.groupby(x).mean()[y]
       sem = data.groupby(x).sem()[y]
@@ -44,12 +70,28 @@ class InteractiveVisualization:
           name='Control',
           x=means.index, y=means,
           error_y=dict(type='data', array=sem)))
-      fig.update_layout(*args, **kwargs)
+      fig.update_layout(**kwargs)
     
     return fig
 
   @staticmethod
   def scatter(*args, **kwargs):
+    """Create interactive scatter plot.
+   
+    Parameters
+    ----------
+    *args: Optional[Sequence[Any]], optional
+        additional positional arguments for px.scatter.
+
+    **kwargs: Optional[Mapping[str, Any]], optional
+        additional arguments for px.scatter.
+
+
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+    """
     fig = px.scatter(*args, **kwargs)
     fig.update_traces(
         marker=dict(
@@ -68,6 +110,43 @@ class InteractiveVisualization:
       color_discrete_sequence: Optional[Sequence[str]] = None,
       *args,
       **kwargs):
+    """Create interactive visualization for the latent space.
+
+    Parameters
+    ----------
+    adata : anndata.AnnData
+        the AnnData used for the analysis.
+    
+    embedding : str, optional
+        embedding method for the latent space, support 'pca', 'umap' 
+        and 'tsne'. Defaults to 'tsne'.
+    
+    filename : Optional[str], optional
+        filename to save the figure. None if disable saving. Defaults 
+        to None.
+    
+    use_rep : str, optional
+        which representation to used for the latent space. Defaults to 
+        'z'.
+    
+    color : Union[str, Sequence[str], None], optional
+        column names in the adata.obs that used to color code the 
+        samples. None if the same color is used. Defaults to None.
+    
+    title : Optional[str], optional
+        title for the figure. Defaults to 'Z(name of AnnData)'
+    
+    color_discrete_sequence : Optional[Sequence[str]], optional
+        the discrete color set individually for each sample. This will
+        overwrite the color code from `color`. None if use the color 
+        code from `color`. Defaults to None
+    
+    *args: Optional[Sequence[Any]], optional
+        additional positional arguments for px.scatter.
+
+    **kwargs: Optional[Mapping[str, Any]], optional
+        additional arguments for px.scatter.
+    """
     
     adata_name = adata.uns.get('cavachon', '').get('name', '')
     if title is None:
@@ -106,7 +185,6 @@ class InteractiveVisualization:
         color_discrete_sequence = ['salmon'] * adata.n_obs
     else:
         color = adata.obs[color]
-        #color_discrete_sequence = None
 
     x = adata.obsm[obsm_key][:, 0]
     y = adata.obsm[obsm_key][:, 1]
@@ -137,8 +215,45 @@ class InteractiveVisualization:
       filename: Optional[str] = None,
       group_by_cluster: bool = False,
       title: str = 'Cluster Nearest Neighbor Analysis',
-      *args,
       **kwargs):
+    """Create interactive visualization for nearest neighbor analysis.
+
+    Parameters
+    ----------
+    mdata: mu.MuData
+        the MuData used for the generative process.
+    
+    model: tf.keras.Model
+        the trained generative model used for the generative process.
+    
+    modality: str
+        the modality to used.
+    
+    use_cluster: str
+        the column name of the clusters in the obs of modality.
+    
+    use_rep: str
+        the key of obsm of modality to used to compute the distance 
+        within and between clusters
+    
+    n_neighbors_sequence: Sequence[int], optional
+        the number of neighbors to be analyzed, Defaults to 
+        list(range(5, 25))
+    
+    filename: Optional[str], optional
+        filename to save the figure. None if disable saving. Defaults 
+        to None.
+    
+    group_by_cluster: bool, optional
+        whether or not to group by the clusters. Defaults to False
+    
+    title: str, optional
+        title for the figure. Defaults to 'Cluster Nearest Neighbor
+        Analysis'
+    
+    **kwargs: Optional[Mapping[str, Any]], optional
+        additional arguments for fig.update_layout.
+    """
     analysis = ClusterAnalysis(mdata, model)
     analysis_result = analysis.compute_neighbors_with_same_annotations(
         modality=modality, 
@@ -159,7 +274,6 @@ class InteractiveVisualization:
         title=title,
         xaxis_title='Number of Neighbors',
         yaxis_title='% of KNN Cells with the Same Cluster',
-        *args,
         **kwargs)
     fig.show()
 
