@@ -35,9 +35,20 @@ class Component(tf.keras.Model):
       distribution names. This is used to automatically find the 
       parameterizer in modules.parameterizers for data distributions.
   
+  encoder: tf.keras.Model
+      encoder neural network.
+
   z_prior_parameterizer: tf.keras.layers.Layer
       parameterizer used for the priors in latent distributions. Used 
       when computing the KLDivergence.
+
+  hierarchical_encoder: tf.karas.Model
+      hierarchical encoder used to encode z_hat hierarchically through 
+      the dependency between components.
+  
+  decoders: Mapping[str, tf.keras.Model]
+      decoder neural networks. The keys are the name of the modality,
+      the values are the corresponding decoder neural network.
       
   name: str, optional
       Name for the tensorflow model. Defaults to 'component'.
@@ -48,9 +59,10 @@ class Component(tf.keras.Model):
     outputs: Mapping[Any, tf.Tensor],
     modality_names: List[Any],
     distribution_names: Mapping[str, str],
+    encoder: tf.keras.Model,
     z_prior_parameterizer: tf.keras.layers.Layer,
     hierarchical_encoder: tf.keras.Model,
-    decoders: tf.keras.Model,
+    decoders: Mapping[str, tf.keras.Model],
     name: str = 'component',
     **kwargs):
     """Constructor for Component. Should not be called directly most of 
@@ -78,9 +90,20 @@ class Component(tf.keras.Model):
         automatically find the parameterizer in modules.parameterizers
         for data distributions.
   
+    encoder: tf.keras.Model
+        encoder neural network.
+
     z_prior_parameterizer: tf.keras.layers.Layer
         parameterizer used for the priors in latent distributions. Used 
         when computing the KLDivergence.
+
+    hierarchical_encoder: tf.karas.Model
+        hierarchical encoder used to encode z_hat hierarchically through 
+        the dependency between components.
+    
+    decoders: Mapping[str, tf.keras.Model]
+        decoder neural networks. The keys are the name of the modality,
+        the values are the corresponding decoder neural network.
 
     name: str, optional:
         Name for the tensorflow model. Defaults to 'component'.
@@ -92,6 +115,7 @@ class Component(tf.keras.Model):
     super().__init__(inputs=inputs, outputs=outputs, name=name)
     self.modality_names = modality_names
     self.distribution_names = distribution_names
+    self.encoder = encoder
     self.z_prior_parameterizer = z_prior_parameterizer
     self.hierarchical_encoder = hierarchical_encoder
     self.decoders = decoders
@@ -687,6 +711,7 @@ class Component(tf.keras.Model):
         outputs=outputs,
         modality_names=modality_names,
         distribution_names=distribution_names,
+        encoder=encoder,
         z_prior_parameterizer=z_prior_parameterizer,
         hierarchical_encoder=hierarchical_encoder,
         decoders=decoders,
@@ -697,8 +722,8 @@ class Component(tf.keras.Model):
       self,
       **kwargs) -> None:
     """Compile the model before training. Note that the 'metrics' will 
-    be ignored in Component due to some unexpected behaviour for 
-    Tensorflow. The 'loss' will be setup automatically if not provided.
+    be ignored in Model becaus of the incompatibility with Tensorflow
+    API. The 'loss' will be setup automatically if not provided.
 
     Parameters
     ----------
@@ -706,19 +731,23 @@ class Component(tf.keras.Model):
         Additional parameters used to compile the model.
 
     """
+    loss_weights = kwargs.get('loss_weights', dict())
+    kwargs.pop('loss_weights', None)
+    
     if 'loss' not in kwargs:
       loss = OrderedDict()
       kl_divergence_name = Constants.MODEL_LOSS_KL_POSTFIX
       loss.setdefault(
           kl_divergence_name,
-          KLDivergence(name=kl_divergence_name))
+          KLDivergence(loss_weights.get(kl_divergence_name, 1.0), name=kl_divergence_name))
       for modality_name in self.modality_names:
-        negative_log_data_likelihood_name = f'{modality_name}/{Constants.MODEL_LOSS_DATA_POSTFIX}'
+        nldl_name = f'{modality_name}/{Constants.MODEL_LOSS_DATA_POSTFIX}'
         loss.setdefault(
-            negative_log_data_likelihood_name,
+            nldl_name,
             NegativeLogDataLikelihood(
                 self.distribution_names.get(modality_name),
-                name=negative_log_data_likelihood_name))
+                loss_weights.get(nldl_name, 1.0),
+                name=nldl_name))
       kwargs.setdefault('loss', loss)
     else:
       message = ''.join((
@@ -728,9 +757,9 @@ class Component(tf.keras.Model):
 
     if 'metrics' in kwargs:
       message = ''.join((
-        f'Due to the unexpected behaviour with compiled_loss when providing less number ',
-        f'of custom losses in Tensorflow 2.8.0. The custom metrics provided to compile() in',
-        f'{self.__class__.__name__} will be ignored.'))
+        f'Due to the incompatibility of the compiled_loss with Tensorflow 2.8.1 (as the model ',
+        f'requires outputs from multiple components to compute the KLDivergence), The custom ',
+        f'metrics provided to compile() in {self.__class__.__name__} will be ignored.'))
       warnings.warn(message, RuntimeWarning)
       kwargs.pop('metrics')
 

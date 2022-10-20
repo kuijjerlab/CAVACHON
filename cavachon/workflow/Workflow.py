@@ -11,6 +11,7 @@ from cavachon.scheduler.SequentialTrainingScheduler import SequentialTrainingSch
 from typing import List, MutableMapping, Optional
 
 import anndata
+import muon as mu
 import os
 import tensorflow as tf
 
@@ -23,6 +24,9 @@ class Workflow():
   ---------
   config: Config
       configuration for the workflow.
+
+  mdata: mu.MuData
+      the multi-modality data.
   
   dataloader: DataLoader
       data loader used to create tf.data.Dataset from the input data.
@@ -51,6 +55,7 @@ class Workflow():
 
     """
     self.config: Config = Config(filename)
+    self.mdata: Optional[mu.Mudata] = None
     self.dataloader: Optional[DataLoader] = None
     self.anndata_filters: AnnDataFilterHandler = AnnDataFilterHandler.from_config(self.config)
     self.model: Optional[Model] = None
@@ -69,10 +74,14 @@ class Workflow():
 
   def run(self) -> None:
     """Run the specified workflow configured in self.config"""
-    self.read_modalities()
-    self.filter_anndata()
-    self.dataloader = DataLoader(self.multi_modalities)
+    adata_dict = Workflow.read_modalities(self.config)
+    self.anndata_filters(adata_dict)
+    self.mdata = MultiModality(adata_dict)
+    self.update_config_nvars()
+
+    self.dataloader = DataLoader(self.mdata)
     self.update_nvars_batch_effect()
+
     self.model = Model.make(self.config.components)
     self.train_scheduler = SequentialTrainingScheduler(self.model, self.optimizer)
     batch_size = self.config.dataset.get(Constants.CONFIG_FIELD_MODEL_DATASET_BATCHSIZE)
@@ -80,46 +89,50 @@ class Workflow():
     self.train_history = self.train_scheduler.fit(
         self.dataloader.dataset.batch(batch_size),
         epochs=max_epochs)
-    self.outputs = self.model.predict(self.multi_modalities, batch_size=batch_size)
+    self.outputs = self.model.predict(self.mdata, batch_size=batch_size)
+    self.model.save_weights(
+        os.path.join(f'{self.config.io.outdir}/', 'logging/', self.model.name))
 
     return
   
-  def read_modalities(self) -> None:
-    """Read the modality files and stored the data in self.modalities"""
-    self.modalities = dict()
-    for modality_name in self.config.modality_names:
-      modality_config = self.config.modality[modality_name]
+  @staticmethod
+  def read_modalities(config: Config) -> MutableMapping[str, anndata.AnnData]:
+    """Read the modality files from the configuration.
+
+    Returns
+    -------
+    MutableMapping[str, anndata.AnnData]
+        the keys are the names of the modality, the values are the 
+        corresponding AnnData.
+
+    """
+    modalities = dict()
+    for modality_name in config.modality_names:
+      modality_config = config.modality[modality_name]
       h5ad = modality_config.get(Constants.CONFIG_FIELD_MODALITY_H5AD)
       if h5ad:
-        self.modalities.setdefault(
+        modalities.setdefault(
             modality_name,
-            anndata.read_h5ad(os.path.join(self.config.io.datadir, h5ad)))
+            anndata.read_h5ad(os.path.join(config.io.datadir, h5ad)))
       else:
-        self.modalities.setdefault(
+        modalities.setdefault(
             modality_name,
             Modality(
-                FileReader.read_multiomics_data(self.config, modality_name), 
+                FileReader.read_multiomics_data(config, modality_name), 
                 name=modality_name,
                 distribution_name=modality_config.get(Constants.CONFIG_FIELD_MODALITY_DIST),
                 modality_type=modality_config.get(Constants.CONFIG_FIELD_MODALITY_TYPE)))
-    return
-
-  def filter_anndata(self) -> None:
-    """Filter the AnnData as configured in self.config.filter"""
-    self.anndata_filters(self.modalities)
-    self.multi_modalities = MultiModality(self.modalities)
-    self.update_config_nvars()
-
-    return
+    
+    return modalities
   
   def update_config_nvars(self) -> None:
-    """Update the number of variables after filtering AnnData"""
+    """Update the number of variables in the config after filtering AnnData"""
     processed_component_configs = list()
     for component_config in self.config.components:
       component_vars = dict()
       for modality_name in component_config.get(Constants.CONFIG_FIELD_COMPONENT_MODALITY_NAMES):
-        modality = self.modalities.get(modality_name)
-        component_vars.setdefault(modality_name, modality.n_vars)
+        component_vars.setdefault(modality_name, self.mdata[modality_name].n_vars)
+
       component_config[Constants.CONFIG_FIELD_COMPONENT_N_VARS] = component_vars
       processed_component_configs.append(component_config)
     

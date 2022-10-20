@@ -406,8 +406,8 @@ class Model(tf.keras.Model):
       self,
       **kwargs) -> None:
     """Compile the model before training. Note that the 'metrics' will 
-    be ignored in Model due to some unexpected behaviour for Tensorflow. 
-    The 'loss' will be setup automatically if not provided.
+    be ignored in Model becaus of the incompatibility with Tensorflow
+    API. The 'loss' will be setup automatically if not provided.
 
     Parameters
     ----------
@@ -415,6 +415,9 @@ class Model(tf.keras.Model):
         Additional parameters used to compile the model.
 
     """
+    loss_weights = kwargs.get('loss_weights', dict())
+    kwargs.pop('loss_weights', None)
+
     if 'loss' not in kwargs:
       loss = dict()
       for component_config in self.component_configs:
@@ -422,7 +425,7 @@ class Model(tf.keras.Model):
         kl_divergence_name = f'{component_name}/{Constants.MODEL_LOSS_KL_POSTFIX}'
         loss.setdefault(
             kl_divergence_name,
-            KLDivergence(name=kl_divergence_name))
+            KLDivergence(loss_weights.get(kl_divergence_name, 1.0), name=kl_divergence_name))
 
         for modality_name in component_config.get('modality_names'):
           nldl_name = f'{component_name}/{modality_name}/{Constants.MODEL_LOSS_DATA_POSTFIX}'
@@ -432,6 +435,7 @@ class Model(tf.keras.Model):
               nldl_name,
               NegativeLogDataLikelihood(
                   distribution_names.get(modality_name),
+                  loss_weights.get(nldl_name, 1.0),
                   name=nldl_name))
       kwargs.setdefault('loss', loss)
     else:
@@ -442,9 +446,9 @@ class Model(tf.keras.Model):
     
     if 'metrics' in kwargs:
       message = ''.join((
-        f'Due to the unexpected behaviour with compiled_loss when providing less number ',
-        f'of custom losses in Tensorflow 2.8.0. The custom metrics provided to compile() in',
-        f'{self.__class__.__name__} will be ignored.'))
+        f'Due to the incompatibility of the compiled_loss with Tensorflow 2.8.1 (as the model ',
+        f'requires outputs from multiple components to compute the KLDivergence), The custom ',
+        f'metrics provided to compile() in {self.__class__.__name__} will be ignored.'))
       warnings.warn(message, RuntimeWarning)
       kwargs.pop('metrics')
 

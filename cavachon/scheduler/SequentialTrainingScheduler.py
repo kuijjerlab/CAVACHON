@@ -1,4 +1,5 @@
 from cavachon.environment.Constants import Constants
+from cavachon.utils.TensorUtils import TensorUtils
 from collections import defaultdict
 from typing import List, Mapping
 
@@ -154,17 +155,19 @@ class SequentialTrainingScheduler:
         component = self.model.components.get(component_name)
         progressive_scaler = component.hierarchical_encoder.progressive_scaler
         if component_name in train_components:
-          trainable = True
+          component.trainable = True
           progressive_iterations = n_batches * float(
               component_config.get(Constants.CONFIG_FIELD_COMPONENT_N_PROGRESSIVE_EPOCHS))
           progressive_scaler.total_iterations.assign(progressive_iterations)
           progressive_scaler.current_iteration.assign(1.0)
         else:
-          trainable = False
+          component.trainable = False
+          TensorUtils.set_batchnorm_trainable(component.encoder, True)
+          for decoder in component.decoders.values():
+            TensorUtils.set_batchnorm_trainable(decoder, True)
           progressive_scaler.total_iterations.assign(1.0)
           progressive_scaler.current_iteration.assign(1.0)
-
-        component.trainable = trainable   
+          
         loss_weights.setdefault(
             f"{component_name}/{Constants.MODEL_LOSS_KL_POSTFIX}",
             1.0)
@@ -172,7 +175,7 @@ class SequentialTrainingScheduler:
           loss_weights.setdefault(
               f"{component_name}/{modality_name}/{Constants.MODEL_LOSS_DATA_POSTFIX}",
               self.modality_weight.get(component_name).get(modality_name))
-      
+
       self.model.compile(
           optimizer=self.optimizer.__class__(learning_rate=learning_rate),
           loss_weights=loss_weights)
@@ -186,6 +189,7 @@ class SequentialTrainingScheduler:
       history.append(self.model.fit(x, callbacks=[early_stopping], **kwargs))
     
     for component in self.model.components.values():
-      component.trainable = True
+      component.trainable = False
 
     return history
+  

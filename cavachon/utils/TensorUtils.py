@@ -74,6 +74,26 @@ class TensorUtils:
     return gradients
 
   @staticmethod
+  def set_batchnorm_trainable(model: tf.keras.Model, trainable: bool = True):
+    """Set the trainable attributes of batch normalization layers. By
+    defuaults, trainable will overwrite the training argument in call.
+
+    Parameters
+    ----------
+    model : tf.keras.Model
+        input model.
+
+    trainable : bool, optional
+        if the batch normalization is in training mode. Defaults to 
+        True.
+        
+    """
+    for layer in model.layers:
+      if isinstance(layer, tf.keras.layers.BatchNormalization):
+        layer.trainable = trainable
+    return
+
+  @staticmethod
   def create_backbone_layers(
       n_layers: int = 3,
       base_n_neurons: int = 128,

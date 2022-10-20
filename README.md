@@ -166,8 +166,7 @@ Create a new class that inherent either the `cavachon.model.Model` or `cavachon.
 * Implement weighted importance or mixture-of-experts in the components.
 * 10X PBMCs 5k, 10k
 * MUON API (?) 
-* ~Color embedding using latent space (change the color attributes)
-* ~Read the weight from logging directory
+* Read the weight from logging directory
 * Heatmap of latent space
 * Early stop, patience
 
