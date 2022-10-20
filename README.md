@@ -166,7 +166,6 @@ Create a new class that inherent either the `cavachon.model.Model` or `cavachon.
 * Implement weighted importance or mixture-of-experts in the components.
 * 10X PBMCs 5k, 10k
 * MUON API (?) 
-* Read the weight from logging directory
 * Heatmap of latent space
 * Early stop, patience
 

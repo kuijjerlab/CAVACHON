@@ -14,6 +14,9 @@ class TrainingConfig(ConfigMapping):
   
   max_n_epochs: int
       maximum number of epochs for training.
+
+  train: bool
+      whether or not to retrain (finetune) the model.
       
   """
   def __init__(self, config: Mapping[str, Any]):
@@ -27,4 +30,5 @@ class TrainingConfig(ConfigMapping):
     """
     self.optimizer: OptimizerConfig
     self.max_n_epochs: int
+    self.train: bool
     super().__init__(config)

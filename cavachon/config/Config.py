@@ -1,4 +1,6 @@
 import os
+
+from traitlets import default
 from cavachon.config.ComponentConfig import ComponentConfig
 from cavachon.config.DatasetConfig import DatasetConfig
 from cavachon.config.FilterConfig import FilterConfig
@@ -64,6 +66,7 @@ class Config:
   def __init__(
       self,
       filename: str,
+      default_checkpointdir: str = './',
       default_datadir: str = './',
       default_outdir: str = './',
       default_optimizer: str = 'adam',
@@ -80,6 +83,9 @@ class Config:
     ----------
     filenames: str
         filename of the config in YAML format.
+
+    default_checkpointdir: str, optional
+        default value for the checkpoint directory. Defaults to './'.
 
     default_datadir: str, optional
         default value for the data directory. Defaults to './'.
@@ -206,12 +212,16 @@ class Config:
 
   def setup_iopath(
       self,
+      default_checkpointdir: str = './',
       default_datadir: str = './',
       default_outdir: str = './') -> None:
     """Setup the io config and datadir.
 
     Parameters
     ----------
+    default_checkpointdir: str, optional
+        default value for the checkpoint directory. Defaults to './'.
+    
     default_datadir: str, optional
         default value for the data directory. Defaults to './'.
     
@@ -220,10 +230,15 @@ class Config:
 
     """
     io_config = self.yaml.get(Constants.CONFIG_FIELD_IO)
+    checkpointdir = io_config.get(Constants.CONFIG_FIELD_IO_CHECKPOINTDIR, default_checkpointdir)
     datadir = io_config.get(Constants.CONFIG_FIELD_IO_DATADIR, default_datadir)
     outdir = io_config.get(Constants.CONFIG_FIELD_IO_OUTDIR, default_outdir)
-    io_config[Constants.CONFIG_FIELD_IO_DATADIR] = os.path.realpath(os.path.dirname(f'{datadir}/'))
-    io_config[Constants.CONFIG_FIELD_IO_OUTDIR] = os.path.realpath(os.path.dirname(f'{outdir}/'))
+    io_config[Constants.CONFIG_FIELD_IO_CHECKPOINTDIR] = os.path.realpath(
+        os.path.dirname(f'{checkpointdir}/'))
+    io_config[Constants.CONFIG_FIELD_IO_DATADIR] = os.path.realpath(
+        os.path.dirname(f'{datadir}/'))
+    io_config[Constants.CONFIG_FIELD_IO_OUTDIR] = os.path.realpath(
+        os.path.dirname(f'{outdir}/'))
 
     self.io = IOConfig(io_config)
     return
@@ -375,6 +390,9 @@ class Config:
     training_config.setdefault(
         Constants.CONFIG_FIELD_MODEL_TRAINING_N_EPOCHS, 
         default_max_n_epochs)
+    training_config.setdefault(
+        Constants.CONFIG_FIELD_MODEL_TRAINING_TRAIN, 
+        True)
     self.training = TrainingConfig(training_config)
 
     # Set default values if not specified in the dataset config

@@ -8,6 +8,9 @@ class IOConfig(ConfigMapping):
 
   Attributes
   ----------
+  checkpointdir: str
+      path to the checkpoint directory.
+
   datadir: str
       path to the data directory.
 
@@ -24,6 +27,7 @@ class IOConfig(ConfigMapping):
         inputs and outputs config in mapping format.
     
     """
+    self.checkpointdir: str
     self.datadir: str
     self.outdir: str
     super().__init__(config)
