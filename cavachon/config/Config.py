@@ -439,6 +439,8 @@ class Config:
     
     model_config = self.yaml.get(Constants.CONFIG_FIELD_MODEL, {})
     model_name = model_config.get('name', 'CAVACHON')
+    load_weights = model_config.get(Constants.CONFIG_FIELD_MODEL_LOAD_WEIGHTS, True)
+    save_weights = model_config.get(Constants.CONFIG_FIELD_MODEL_SAVE_WEIGHTS, False)
 
     self.are_all_fields_in_mapping(
         Constants.CONFIG_FIELD_MODEL_REQUIRED,
@@ -557,6 +559,8 @@ class Config:
     
     self.model = ModelConfig({
       'name': model_name,
+      Constants.CONFIG_FIELD_MODEL_LOAD_WEIGHTS: load_weights,
+      Constants.CONFIG_FIELD_MODEL_SAVE_WEIGHTS: save_weights,
       Constants.CONFIG_FIELD_MODEL_COMPONENT: self.components,
       Constants.CONFIG_FIELD_MODEL_TRAINING: self.training,
       Constants.CONFIG_FIELD_MODEL_DATASET: self.dataset

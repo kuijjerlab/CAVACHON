@@ -87,23 +87,29 @@ class Workflow():
     self.train_scheduler = SequentialTrainingScheduler(self.model, self.optimizer)
     batch_size = self.config.dataset.get(Constants.CONFIG_FIELD_MODEL_DATASET_BATCHSIZE)
     max_epochs = self.config.training.get(Constants.CONFIG_FIELD_MODEL_TRAINING_N_EPOCHS)
-    try:
-      self.model.load_weights(
-          os.path.join(f'{self.config.io.checkpointdir}', self.model.name))
-    except:
-      self.config.training[Constants.CONFIG_FIELD_MODEL_TRAINING_TRAIN] = True
-      message = ''.join((
-          f'Cannot load the pretrained weights in {self.config.io.checkpointdir}, force retrain '
-          f'the model.'
-      ))
-      warnings.warn(message, RuntimeWarning)
+    if self.config.model.load_weights:
+      try:
+        self.model.load_weights(
+            os.path.join(f'{self.config.io.checkpointdir}', self.model.name))
+      except:
+        self.config.training[Constants.CONFIG_FIELD_MODEL_TRAINING_TRAIN] = True
+        message = ''.join((
+            f'Cannot load the pretrained weights in {self.config.io.checkpointdir}, force retrain '
+            f'the model.'
+        ))
+        warnings.warn(message, RuntimeWarning)
+        
     if self.config.training.train:
       self.train_history = self.train_scheduler.fit(
           self.dataloader.dataset.batch(batch_size),
           epochs=max_epochs)
+      if self.config.model.save_weights: 
+        self.model.save_weights(
+          os.path.join(f'{self.config.io.checkpointdir}', self.model.name))
+    for component in self.model.components.values():
+      component.trainable = False
+      self.model.compile()
     self.outputs = self.model.predict(self.mdata, batch_size=batch_size)
-    self.model.save_weights(
-        os.path.join(f'{self.config.io.checkpointdir}', self.model.name))
 
     return
   

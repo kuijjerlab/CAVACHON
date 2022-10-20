@@ -190,6 +190,7 @@ class SequentialTrainingScheduler:
     
     for component in self.model.components.values():
       component.trainable = False
+    self.model.compile()
 
     return history
   

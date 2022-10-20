@@ -23,6 +23,11 @@ class ModelConfig(ConfigMapping):
   dataset: DatasetConfig
       dataset config
 
+  load_weights: bool
+      whether or not to load the pretrained weights before training.
+
+  save_weights: bool
+      whether or not to save the weights after training.
   """
 
   def __init__(self, config: Mapping[str, Any]):
@@ -38,4 +43,6 @@ class ModelConfig(ConfigMapping):
     self.components: List[ComponentConfig] = list()
     self.training: TrainingConfig
     self.dataset: DatasetConfig
+    self.load_weights: bool
+    self.save_weights: bool
     super().__init__(config)

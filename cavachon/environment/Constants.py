@@ -66,6 +66,8 @@ class Constants:
   ]
 
   CONFIG_FIELD_MODEL = 'model'
+  CONFIG_FIELD_MODEL_LOAD_WEIGHTS = 'load_weights'
+  CONFIG_FIELD_MODEL_SAVE_WEIGHTS = 'save_weights'
   CONFIG_FIELD_MODEL_TRAINING = 'training'
   CONFIG_FIELD_MODEL_TRAINING_OPTIMIZER = 'optimizer'
   CONFIG_FIELD_MODEL_TRAINING_N_EPOCHS = 'max_n_epochs'

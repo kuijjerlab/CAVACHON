@@ -1,8 +1,11 @@
 io: 
+  checkpointdir:  ${CHECKPOINT DIRECTORY}
   datadir: ${DATASET DIRECTORY}
   outdir: ${OUTPUT DIRECTORY}
 model:
   name: CAVACHON
+  load_weights: False
+  save_weights: True
   components:
     - name: ATAC Component
       modalities:

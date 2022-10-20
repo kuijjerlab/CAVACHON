@@ -29,6 +29,10 @@ Some other example templates can be found in `sample_data/config_templates`. To 
 # Config Specification
 ## Inputs and Outputs
 The configs for inputs and outputs are specified under the field `io`:
+* `checkpointdir`:
+  * required: `False`.
+  * defaults: `./`
+  * description: the directory for the pretrained checkpoint and the save model weights.
 * `datadir`:
   * required: `False`.
   * defaults: `./`
@@ -156,6 +160,14 @@ The configs for the model are specified under the field `model`:
   * defaults: `CAVACHON`
   * type: `str`
   * description: the name of the model.
+* `load_weights`:
+  * required: `True`.
+  * type: `bool`
+  * description: whether or not to load the pretrained weights. If `True`, the checkpoint of the pretrained in `checkpoiontdir/model_name` will be load to the Model. See [config for IO](#inputs-and-outputs).
+* `save_weights`:
+  * required: `False`.
+  * type: `bool`
+  * description: whether or not to save the weights. If `True`, the weights will be save to `checkpoiontdir/model_name`. See [config for IO](#inputs-and-outputs).
 * `components`:
   * required: `True`.
   * type: `List[ComponentConfig]`
@@ -231,6 +243,11 @@ The configs for the modalities in the component.
 
 ## Training
 The configs for the training process.
+* `train`:
+  * required: `False`.
+  * defaults: `True`.
+  * type: `bool`.
+  * description: whether or not to train or finetune the model.
 * `max_n_epochs`:
   * required: `False`.
   * defaults: `1000`.
