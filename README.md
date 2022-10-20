@@ -110,7 +110,7 @@ gseapy.prerank(rnk=prerank, gene_sets=gene_sets, outdir='enrichment_analysis')
 ```python
 from cavachon.tools import InteractiveVisualization
 
-InteractiveVisualization.latent_space(adata=workflow.multi_modalities['RNA_Modality'], 
+InteractiveVisualization.embedding(adata=workflow.mdata['RNA_Modality'], 
     use_rep='z_RNA_Component', width=800, height=720, filename='latent_space_rna.html')
 ```
 ![latent_space_rna](./assets/latent_space_rna.png)
@@ -164,4 +164,10 @@ Create a new class that inherent either the `cavachon.model.Model` or `cavachon.
   * Independent Negative Binomial Distributions
   * Independent Gaussian Distributions
 * Implement weighted importance or mixture-of-experts in the components.
+* 10X PBMCs 5k, 10k
+* MUON API (?) 
+* ~Color embedding using latent space (change the color attributes)
+* ~Read the weight from logging directory
+* Heatmap of latent space
+* Early stop, patience
 

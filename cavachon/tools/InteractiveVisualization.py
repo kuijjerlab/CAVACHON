@@ -100,9 +100,9 @@ class InteractiveVisualization:
     return fig
 
   @staticmethod
-  def latent_space(
+  def embedding(
       adata: anndata.AnnData,
-      embedding: str = 'tsne',
+      method: str = 'tsne',
       filename: Optional[str] = None,
       use_rep: str = 'z',
       color: Union[str, Sequence[str], None] = None,
@@ -114,32 +114,36 @@ class InteractiveVisualization:
 
     Parameters
     ----------
-    adata : anndata.AnnData
+    adata: anndata.AnnData
         the AnnData used for the analysis.
     
-    embedding : str, optional
+    method: str, optional
         embedding method for the latent space, support 'pca', 'umap' 
         and 'tsne'. Defaults to 'tsne'.
     
-    filename : Optional[str], optional
+    filename: Optional[str], optional
         filename to save the figure. None if disable saving. Defaults 
         to None.
     
-    use_rep : str, optional
+    use_rep: str, optional
         which representation to used for the latent space. Defaults to 
         'z'.
     
-    color : Union[str, Sequence[str], None], optional
+    color: Union[str, Sequence[str], None], optional
         column names in the adata.obs that used to color code the 
-        samples. None if the same color is used. Defaults to None.
+        samples. Alternatively, if provided with `obsm_key`/`obsm_index`
+        the color will be set to the `obsm_index` column from the array
+        of adata.obsm[`obsm_key`]. The same color for all samples will
+        be used if provided with None. Defaults to None.
     
-    title : Optional[str], optional
+    title: Optional[str], optional
         title for the figure. Defaults to 'Z(name of AnnData)'
     
-    color_discrete_sequence : Optional[Sequence[str]], optional
+    color_discrete_sequence: Optional[Sequence[str]], optional
         the discrete color set individually for each sample. This will
-        overwrite the color code from `color`. None if use the color 
-        code from `color`. Defaults to None
+        overwrite the color code from `color`. The color code defined
+        from `color` argument will be used if provided with none. 
+        Defaults to None
     
     *args: Optional[Sequence[Any]], optional
         additional positional arguments for px.scatter.
@@ -152,39 +156,54 @@ class InteractiveVisualization:
     if title is None:
       title = f'Z({adata_name})'
 
-    if embedding not in ['pca', 'tsne', 'umap']:
+    if method not in ['pca', 'tsne', 'umap']:
       message = ''.join((
-          f"Invalid value for embedding ({embedding}). Expected to be one of the following: ",
+          f"Invalid value for method ({method}). Expected to be one of the following: ",
           f"'pca', 'tsne' or 'umap'. Set to 'tsne'."
       ))
       warnings.warn(message, RuntimeWarning)
-      embedding = 'tsne'
-    
-    obsm_key = f'X_{embedding}'
+      method = 'tsne'
+     
+    if color is not None:
+
+      if color in adata.obs:
+        color = adata.obs[color]
+      else:
+        color_obsm_key = '/'.join(color.split('/')[0:-1])
+        color_obsm_column = int(color.split('/')[-1])
+        if color_obsm_key in adata.obsm:
+          color = adata.obsm[color_obsm_key][:, color_obsm_column]
+        else:
+          message = ''.join((
+            f"{color} is not in adata.obs, and {color_obsm_key} is not in adata.obsm "
+            f"ignore color argument."
+          ))
+          warnings.warn(message, RuntimeWarning)
+          color = None
+
+    if color is None:
+      if color_discrete_sequence is None:
+        color_discrete_sequence = ['salmon'] * adata.n_obs
+
+    obsm_key = f'X_{method}'
     if obsm_key not in adata.obsm.keys():
-      if embedding == 'pca':
+      if method == 'pca':
         model = PCA(n_components=2, random_state=0)
         model.fit(adata.obsm[use_rep])
         adata.obsm['X_pca'] = model.transform(adata.obsm[use_rep])
-      if embedding == 'tsne':
+      if method == 'tsne':
         scanpy.tl.tsne(adata, use_rep=use_rep)
-      if embedding == 'umap':
+      if method == 'umap':
         model = umap.UMAP(random_state=0)
         model.fit(adata.obsm[use_rep])
         adata.obsm['X_umap'] = model.transform(adata.obsm[use_rep])
     
-    if embedding == 'pca':
+    if method == 'pca':
       labels = {'x': 'PCA 1', 'y': 'PCA 2'}
-    if embedding == 'tsne':
+    if method == 'tsne':
       labels = {'x': 't-SNE 1', 'y': 't-SNE 2'}
-    if embedding == 'umap':
+    if method == 'umap':
       labels = {'x': 'Umap 1', 'y': 'Umap 2'}
-    
-    if color is None:
-      if color_discrete_sequence is None:
-        color_discrete_sequence = ['salmon'] * adata.n_obs
-    else:
-        color = adata.obs[color]
 
     x = adata.obsm[obsm_key][:, 0]
     y = adata.obsm[obsm_key][:, 1]
