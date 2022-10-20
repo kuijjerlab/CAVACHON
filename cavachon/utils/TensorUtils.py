@@ -149,7 +149,7 @@ class TensorUtils:
     """
 
     layers = []
-    for no_layer in range(0, n_layers - 1):
+    for no_layer in range(0, n_layers):
       n_neurons = max(base_n_neurons * rate ** no_layer, max_n_neurons)
       layers.append(tf.keras.layers.Dense(n_neurons, activation=activation))
       layers.append(tf.keras.layers.BatchNormalization())
