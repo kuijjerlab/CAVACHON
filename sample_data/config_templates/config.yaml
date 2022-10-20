@@ -1,5 +1,6 @@
 io: 
   datadir: ${DATASET DIRECTORY}
+  outdir: ${OUTPUT DIRECTORY}
 model:
   name: CAVACHON
   components:

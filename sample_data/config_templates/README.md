@@ -33,6 +33,10 @@ The configs for inputs and outputs are specified under the field `io`:
   * required: `False`.
   * defaults: `./`
   * description: the directory of the input datasets.
+* `outdir`:
+  * required: `False`.
+  * defaults: `./`
+  * description: the output directory.
 
 &nbsp;
 ## Modalities

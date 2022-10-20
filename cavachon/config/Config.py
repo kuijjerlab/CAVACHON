@@ -64,7 +64,8 @@ class Config:
   def __init__(
       self,
       filename: str,
-      default_data_dir: str = './',
+      default_datadir: str = './',
+      default_outdir: str = './',
       default_optimizer: str = 'adam',
       default_learning_rate: float = 5e-4,
       default_max_n_epochs: int = 500,
@@ -80,9 +81,12 @@ class Config:
     filenames: str
         filename of the config in YAML format.
 
-    default_data_dir: str, optional
+    default_datadir: str, optional
         default value for the data directory. Defaults to './'.
     
+    default_outdir: str, optional
+        default value for the data directory. Defaults to './'.
+
     default_optimizer: str, optional
         default optimizer. Defaults to 'adam'.
     
@@ -132,7 +136,7 @@ class Config:
     self.components: List[ComponentConfig] = list()
     self.dataset: DatasetConfig = DatasetConfig(dict())
     
-    self.setup_iopath(default_datadir=default_data_dir)
+    self.setup_iopath(default_datadir=default_datadir, default_outdir=default_outdir)
     self.setup_config_modality()
     self.setup_config_sample()
     self.setup_training_dataset(
@@ -200,18 +204,26 @@ class Config:
 
     return all_required_keys_are_there
 
-  def setup_iopath(self, default_datadir: str = './') -> None:
+  def setup_iopath(
+      self,
+      default_datadir: str = './',
+      default_outdir: str = './') -> None:
     """Setup the io config and datadir.
 
     Parameters
     ----------
-    default_data_dir: str, optional
+    default_datadir: str, optional
+        default value for the data directory. Defaults to './'.
+    
+    default_outdir: str, optional
         default value for the data directory. Defaults to './'.
 
     """
     io_config = self.yaml.get(Constants.CONFIG_FIELD_IO)
     datadir = io_config.get(Constants.CONFIG_FIELD_IO_DATADIR, default_datadir)
+    outdir = io_config.get(Constants.CONFIG_FIELD_IO_OUTDIR, default_outdir)
     io_config[Constants.CONFIG_FIELD_IO_DATADIR] = os.path.realpath(os.path.dirname(f'{datadir}/'))
+    io_config[Constants.CONFIG_FIELD_IO_OUTDIR] = os.path.realpath(os.path.dirname(f'{outdir}/'))
 
     self.io = IOConfig(io_config)
     return

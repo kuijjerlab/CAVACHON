@@ -33,6 +33,7 @@ class Constants:
 
   CONFIG_FIELD_IO = 'io'
   CONFIG_FIELD_IO_DATADIR = 'datadir'
+  CONFIG_FIELD_IO_OUTDIR = 'outdir'
 
   CONFIG_FIELD_MODALITY = 'modalities'
   CONFIG_FIELD_MODALITY_TYPE = 'type'

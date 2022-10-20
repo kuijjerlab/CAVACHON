@@ -11,6 +11,9 @@ class IOConfig(ConfigMapping):
   datadir: str
       path to the data directory.
 
+  outdir: str
+      path to the output directory.
+
   """
   def __init__(self, config: Mapping[str, Any]):
     """Constructor for IOConfig. 
@@ -22,4 +25,5 @@ class IOConfig(ConfigMapping):
     
     """
     self.datadir: str
+    self.outdir: str
     super().__init__(config)
