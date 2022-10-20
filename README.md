@@ -74,8 +74,8 @@ index_a = obs[obs['cluster_RNA_Component'] == 'Cluster 001'].index
 index_b = obs[obs['cluster_RNA_Component'] == 'Cluster 002'].index
 
 analysis = DifferentialAnalysis(mdata=workflow.multi_modalities, model=workflow.model)
-degs = analysis(group_a_index=index_a, group_b_index=index_b, component='RNA_Component', 
-    modality='RNA_Modality')
+degs = analysis.between_two_groups(group_a_index=index_a, group_b_index=index_b, 
+    component='RNA_Component', modality='RNA_Modality')
 ```
 `degs`: summary table of differentially expressed analysis using Bayesian factor.
 ```
