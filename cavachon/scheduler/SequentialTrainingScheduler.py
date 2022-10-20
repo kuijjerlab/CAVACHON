@@ -162,9 +162,7 @@ class SequentialTrainingScheduler:
           progressive_scaler.current_iteration.assign(1.0)
         else:
           component.trainable = False
-          TensorUtils.set_batchnorm_trainable(component.encoder, True)
-          for decoder in component.decoders.values():
-            TensorUtils.set_batchnorm_trainable(decoder, True)
+          component.set_batchnorm_trainable(True)
           progressive_scaler.total_iterations.assign(1.0)
           progressive_scaler.current_iteration.assign(1.0)
           
