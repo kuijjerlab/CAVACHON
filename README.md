@@ -1,6 +1,5 @@
 # CAVACHON (Under Development)
-**C**ell cluster **A**nalysis with **V**ariational **A**utoencoder using **C**onditional **H**ierarchy **Of** latent representio**N** is the Tensorflow implementation of the research "_Using hierarchical variational autoencoders to incorporate conditional independent priors for paired single-cell multi-omics data integration_" (NeurIPS LMRL Workshop 2022 Under Review)
-<!--by PH Hsieh, RX Hsiao, T Belova, KT Ferenc, A Mathelier, R Burkholz, CY Chen, GK Sandve, ML Kuijjer.-->
+**C**ell cluster **A**nalysis with **V**ariational **A**utoencoder using **C**onditional **H**ierarchy **Of** latent representio**N** is the Tensorflow implementation of the research "[_Using hierarchical variational autoencoders to incorporate conditional independent priors for paired single-cell multi-omics data integration_ (NeurIPS LMRL Workshop 2022 accepted paper)](https://drive.google.com/file/d/1-WLQ3fQtIffnC2_b64iEw_6to4bcJrfi/view?usp=sharing)" by PH Hsieh, RX Hsiao, T Belova, KT Ferenc, A Mathelier, R Burkholz, CY Chen, GK Sandve, ML Kuijjer.
 
 ## Installation
 ```
@@ -26,7 +25,7 @@ workflow.run()
 ```python
 from cavachon.tools import ClusterAnalysis
 
-analysis = ClusterAnalysis(workflow.multi_modalities, workflow.model)
+analysis = ClusterAnalysis(workflow.mdata, workflow.model)
 logpy_z = analysis.compute_cluster_log_probability(modality='RNA_Modality', component='RNA_Component')
 knn = analysis.compute_neighbors_with_same_annotations(modality='RNA_Modality' 
     use_cluster='cluster_RNA_Component', use_rep='z_RNA_Component')
@@ -69,13 +68,13 @@ array([[ -3.9341083 , -10.776552  ,  -0.5897913 , ...,  -3.9447799 ,
 ```python
 from cavachon.tools import DifferentialAnalysis
 
-obs = workflow.multi_modalities['RNA_Modality'].obs
+obs = workflow.mdata['RNA_Modality'].obs
 index_a = obs[obs['cluster_RNA_Component'] == 'Cluster 001'].index
 index_b = obs[obs['cluster_RNA_Component'] == 'Cluster 002'].index
 
-analysis = DifferentialAnalysis(mdata=workflow.multi_modalities, model=workflow.model)
-degs = analysis(group_a_index=index_a, group_b_index=index_b, component='RNA_Component', 
-    modality='RNA_Modality')
+analysis = DifferentialAnalysis(mdata=workflow.mdata, model=workflow.model)
+degs = analysis.between_two_groups(group_a_index=index_a, group_b_index=index_b, 
+    component='RNA_Component', modality='RNA_Modality')
 ```
 `degs`: summary table of differentially expressed analysis using Bayesian factor.
 ```
@@ -110,7 +109,7 @@ gseapy.prerank(rnk=prerank, gene_sets=gene_sets, outdir='enrichment_analysis')
 ```python
 from cavachon.tools import InteractiveVisualization
 
-InteractiveVisualization.latent_space(adata=workflow.multi_modalities['RNA_Modality'], 
+InteractiveVisualization.embedding(adata=workflow.mdata['RNA_Modality'], 
     use_rep='z_RNA_Component', width=800, height=720, filename='latent_space_rna.html')
 ```
 ![latent_space_rna](./assets/latent_space_rna.png)
@@ -118,7 +117,7 @@ InteractiveVisualization.latent_space(adata=workflow.multi_modalities['RNA_Modal
 ```python
 from cavachon.tools import InteractiveVisualization
 
-InteractiveVisualization.neighbors_with_same_annotations(mdata=workflow.multi_modalities, 
+InteractiveVisualization.neighbors_with_same_annotations(mdata=workflow.mdata, 
     model=workflow.model, modality='RNA_Modality', use_cluster='cluster_RNA', use_rep='z_RNA', 
     n_neighbors_sequence=[5], group_by_cluster=True, width=800, height=720, 
     filename='nearest_neighbors_rna.png')
@@ -164,4 +163,3 @@ Create a new class that inherent either the `cavachon.model.Model` or `cavachon.
   * Independent Negative Binomial Distributions
   * Independent Gaussian Distributions
 * Implement weighted importance or mixture-of-experts in the components.
-
