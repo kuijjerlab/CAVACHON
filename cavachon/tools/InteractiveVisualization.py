@@ -1,5 +1,6 @@
 from cavachon.tools.ClusterAnalysis import ClusterAnalysis
 from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 from typing import Optional, Union, Sequence
 
 import anndata
@@ -185,18 +186,17 @@ class InteractiveVisualization:
       if color_discrete_sequence is None:
         color_discrete_sequence = ['salmon'] * adata.n_obs
 
-    obsm_key = f'X_{method}'
+    obsm_key = f'{use_rep}_{method}'
     if obsm_key not in adata.obsm.keys():
       if method == 'pca':
         model = PCA(n_components=2, random_state=0)
-        model.fit(adata.obsm[use_rep])
-        adata.obsm['X_pca'] = model.transform(adata.obsm[use_rep])
+        adata.obsm[obsm_key] = model.fit_transform(adata.obsm[use_rep])
       if method == 'tsne':
-        scanpy.tl.tsne(adata, use_rep=use_rep)
+        model = TSNE(random_state=0)
+        adata.obsm[obsm_key] = model.fit_transform(adata.obsm[use_rep])
       if method == 'umap':
         model = umap.UMAP(random_state=0)
-        model.fit(adata.obsm[use_rep])
-        adata.obsm['X_umap'] = model.transform(adata.obsm[use_rep])
+        adata.obsm[obsm_key] = model.fit_transform(adata.obsm[use_rep])
     
     if method == 'pca':
       labels = {'x': 'PCA 1', 'y': 'PCA 2'}
