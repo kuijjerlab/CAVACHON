@@ -1,7 +1,7 @@
 from cavachon.environment.Constants import Constants
-from cavachon.utils.TensorUtils import TensorUtils
 from collections import defaultdict
-from typing import List, Mapping
+from copy import deepcopy
+from typing import List, Mapping, Union
 
 import itertools
 import tensorflow as tf
@@ -22,7 +22,10 @@ class SequentialTrainingScheduler:
   
   optimizer: tf.keras.optimizers.Optimizer
       optimizer used to train the model (only the attributes of the
-      optimizer will be used.)
+      optimizer will be used)
+
+  early_stopping: bool
+        whether or not to use early stopping when training the model.
 
   training_order: Mapping[int, List[str]]
       the training order of the components, the keys are the training
@@ -38,23 +41,38 @@ class SequentialTrainingScheduler:
   def __init__(
       self,
       model: tf.keras.Model,
-      optimizer: tf.keras.optimizers.Optimizer):
+      optimizer: Union[tf.keras.optimizers.Optimizer, str] = 'adam',
+      learning_rate: float = 1e-3,
+      early_stopping: bool = True):
     """Constructor for SequentialTrainingScheduler.
 
     Parameters
     ----------
-    model : tf.keras.Model
+    model: tf.keras.Model
         input model that needs to be trained.
 
-    optimizer : tf.keras.optimizers.Optimizer
+    optimizer: tf.keras.optimizers.Optimizer, optional
         optimizer used to train the model (only the attributes of the
-        optimizer will be used.)
+        optimizer will be used if provided with Optimizer). Defaults to 
+        'adam'.
+    
+    learning_rate: float, optional
+        learning rate for the optimizer. Defaults to 1e-3.
+    
+    early_stopping: bool, optional
+        whether or not to use early stopping when training the model. 
+
     """
     self.model = model
     self.component_configs = self.model.component_configs
     self.optimizer = optimizer
+    self.early_stopping = early_stopping
     self.training_order = self.compute_component_training_order()
     self.modality_weight = self.compute_modality_weight()
+    if isinstance(optimizer, str):
+      self.optimizer = tf.keras.optimizers.get(optimizer).__class__(learning_rate=learning_rate)
+    else:
+      self.optimizer.learning_rate = learning_rate
 
   def compute_component_training_order(self) -> Mapping[int, List[str]]:
     """Compute the training order of the components based on the order
@@ -150,16 +168,19 @@ class SequentialTrainingScheduler:
 
     for component_order, train_components in enumerate(self.training_order):
       loss_weights = dict()
+      max_n_progressive_epochs = int(kwargs.get('epochs') / 4)
       for component_config in self.component_configs:
         component_name = component_config.get('name')
         component = self.model.components.get(component_name)
         progressive_scaler = component.hierarchical_encoder.progressive_scaler
         if component_name in train_components:
           component.trainable = True
-          progressive_iterations = n_batches * float(
+          n_progressive_epochs = float(
               component_config.get(Constants.CONFIG_FIELD_COMPONENT_N_PROGRESSIVE_EPOCHS))
+          progressive_iterations = n_batches * n_progressive_epochs
           progressive_scaler.total_iterations.assign(progressive_iterations)
           progressive_scaler.current_iteration.assign(1.0)
+          max_n_progressive_epochs = max(max_n_progressive_epochs, n_progressive_epochs)
         else:
           component.trainable = False
           component.set_batchnorm_trainable(True)
@@ -177,17 +198,23 @@ class SequentialTrainingScheduler:
       self.model.compile(
           optimizer=self.optimizer.__class__(learning_rate=learning_rate),
           loss_weights=loss_weights)
-      early_stopping = tf.keras.callbacks.EarlyStopping(
-          monitor='loss',
-          min_delta = 5,
-          patience = 100,
-          restore_best_weights=True,
-          verbose=1,
-      )
-      history.append(self.model.fit(x, callbacks=[early_stopping], **kwargs))
+
+      callbacks = deepcopy(kwargs.get('callbacks', []))
+      if self.early_stopping:
+        callbacks.append(tf.keras.callbacks.EarlyStopping(
+            monitor='loss',
+            min_delta = 5,
+            patience = max_n_progressive_epochs + 50,
+            restore_best_weights=True,
+            verbose=1))
+      history.append(self.model.fit(x, callbacks=callbacks, **kwargs))
     
     for component in self.model.components.values():
       component.trainable = False
+      progressive_scaler = component.hierarchical_encoder.progressive_scaler
+      progressive_scaler.total_iterations.assign(1.0)
+      progressive_scaler.current_iteration.assign(1.0)
+
     self.model.compile()
 
     return history

@@ -64,13 +64,6 @@ class Workflow():
     self.train_history: List[tf.keras.callbacks.History] = list()
     self.outputs: MutableMapping[str, tf.Tensor] = dict()
 
-    optimizer_config = self.config.training.get(Constants.CONFIG_FIELD_MODEL_TRAINING_OPTIMIZER)
-    learning_rate = float(optimizer_config.get(
-        Constants.CONFIG_FIELD_MODEL_TRAINING_LEARNING_RATE , 
-        5e-4))
-    self.optimizer: tf.keras.optimizers.Optimizer = tf.keras.optimizers.get(
-        optimizer_config.get('name', 'adam')).__class__(learning_rate=learning_rate)
-
     return
 
   def run(self) -> None:
@@ -84,7 +77,19 @@ class Workflow():
     self.update_nvars_batch_effect()
 
     self.model = Model.make(self.config.components)
-    self.train_scheduler = SequentialTrainingScheduler(self.model, self.optimizer)
+    
+    optimizer_config = self.config.training.get(Constants.CONFIG_FIELD_MODEL_TRAINING_OPTIMIZER)
+    optimizer = optimizer_config.get('name', 'adam')
+    learning_rate = float(optimizer_config.get(
+        Constants.CONFIG_FIELD_MODEL_TRAINING_LEARNING_RATE, 
+        1e-3))
+    early_stopping = self.config.training.get(Constants.CONFIG_FIELD_MODEL_TRAINING_EARLY_STOPPING)
+    self.train_scheduler = SequentialTrainingScheduler(
+        self.model,
+        optimizer,
+        learning_rate,
+        early_stopping)
+    
     batch_size = self.config.dataset.get(Constants.CONFIG_FIELD_MODEL_DATASET_BATCHSIZE)
     max_epochs = self.config.training.get(Constants.CONFIG_FIELD_MODEL_TRAINING_N_EPOCHS)
     if self.config.model.load_weights:
@@ -108,6 +113,9 @@ class Workflow():
           os.path.join(f'{self.config.io.checkpointdir}', self.model.name))
     for component in self.model.components.values():
       component.trainable = False
+      progressive_scaler = component.hierarchical_encoder.progressive_scaler
+      progressive_scaler.total_iterations.assign(1.0)
+      progressive_scaler.current_iteration.assign(1.0)
       self.model.compile()
     self.outputs = self.model.predict(self.mdata, batch_size=batch_size)
 

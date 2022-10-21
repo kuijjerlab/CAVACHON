@@ -234,7 +234,7 @@ The configs for the modalities in the component.
   * required: `False`.
   * defaults: `True`.
   * type: `bool`.
-  * description: whether or not to save the predicted `z` to `obsm` of the modality.
+  * description: whether or not to save the predicted `z` and `z_hat` to `obsm` of the modality.
 * `save_x`:
   * required: `False`.
   * defaults: `True`.
@@ -248,6 +248,11 @@ The configs for the training process.
   * defaults: `True`.
   * type: `bool`.
   * description: whether or not to train or finetune the model.
+* `early_stop`:
+  * required: `False`.
+  * defaults: `True`.
+  * type: `bool`.
+  * description: whether or not to use early stopping when training the model. Ignored if `train=False`.
 * `max_n_epochs`:
   * required: `False`.
   * defaults: `1000`.

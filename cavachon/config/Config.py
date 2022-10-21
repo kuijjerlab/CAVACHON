@@ -393,6 +393,9 @@ class Config:
     training_config.setdefault(
         Constants.CONFIG_FIELD_MODEL_TRAINING_TRAIN, 
         True)
+    training_config.setdefault(
+        Constants.CONFIG_FIELD_MODEL_TRAINING_EARLY_STOPPING,
+        True)
     self.training = TrainingConfig(training_config)
 
     # Set default values if not specified in the dataset config

@@ -17,7 +17,10 @@ class TrainingConfig(ConfigMapping):
 
   train: bool
       whether or not to retrain (finetune) the model.
-      
+
+  early_stopping: bool
+      whether or not to use early stopping when training the model. 
+      Ignored if `train=False`.
   """
   def __init__(self, config: Mapping[str, Any]):
     """Constructor for TrainingConfig. 
@@ -31,4 +34,5 @@ class TrainingConfig(ConfigMapping):
     self.optimizer: OptimizerConfig
     self.max_n_epochs: int
     self.train: bool
+    self.early_stopping: bool
     super().__init__(config)
