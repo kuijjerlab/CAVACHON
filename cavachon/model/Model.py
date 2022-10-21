@@ -360,9 +360,11 @@ class Model(tf.keras.Model):
       field_save_z = Constants.CONFIG_FIELD_COMPONENT_MODALITY_SAVE_Z
       save_x = dict()
       save_z = dict()
+      save_z_hat = dict()
       for component_config in self.component_configs:
         component_name = component_config.name
         outputs.setdefault(f"{component_name}/z", list())
+        outputs.setdefault(f"{component_name}/z_hat", list())
         modality_names = component_config.get(Constants.CONFIG_FIELD_COMPONENT_N_VARS).keys()
         predict_x = False
 
@@ -376,6 +378,9 @@ class Model(tf.keras.Model):
               f'{component_name}/{modality_name}',
               component_config.get(field_save_x).get(modality_name))
           save_z.setdefault(
+              f'{component_name}/{modality_name}',
+              component_config.get(field_save_z).get(modality_name))
+          save_z_hat.setdefault(
               f'{component_name}/{modality_name}',
               component_config.get(field_save_z).get(modality_name))
         if predict_x:
@@ -394,6 +399,9 @@ class Model(tf.keras.Model):
           if save_z.get(f'{component_name}/{modality_name}'):
             x.mod[modality_name].obsm[f'z_{component_name}'] = outputs.get(
                 f"{component_name}/z")
+          if save_z.get(f'{component_name}/{modality_name}'):
+            x.mod[modality_name].obsm[f'z_hat_{component_name}'] = outputs.get(
+                f"{component_name}/z_hat")
           if save_x.get(f'{component_name}/{modality_name}'):
             x.mod[modality_name].obsm[f'x_parameters_{component_name}'] = outputs.get(
                 f"{component_name}/{modality_name}/x_parameters")
