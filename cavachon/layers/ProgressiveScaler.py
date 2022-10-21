@@ -1,4 +1,3 @@
-#%%
 import tensorflow as tf
 
 class ProgressiveScaler(tf.keras.layers.Layer):
@@ -59,16 +58,16 @@ class ProgressiveScaler(tf.keras.layers.Layer):
     
     """
     if training:
-        alpha = (self.current_iteration + 1e-7) / (self.total_iterations + 1e-7)
-        alpha = tf.where(alpha > 1.0, tf.ones_like(alpha), alpha)
-        result = alpha * inputs
-        self.current_iteration.assign_add(1.0)
-        self.current_iteration.assign(
-            tf.where(
-              self.current_iteration > self.total_iterations,
-              self.total_iterations,
-              self.current_iteration))
+      alpha = (self.current_iteration + 1e-7) / (self.total_iterations + 1e-7)
+      alpha = tf.where(alpha > 1.0, tf.ones_like(alpha), alpha)
+      result = alpha * inputs
+      self.current_iteration.assign_add(1.0)
+      self.current_iteration.assign(
+          tf.where(
+            self.current_iteration > self.total_iterations,
+            self.total_iterations,
+            self.current_iteration))
     else:
-        result = inputs
+      result = inputs
 
     return result
