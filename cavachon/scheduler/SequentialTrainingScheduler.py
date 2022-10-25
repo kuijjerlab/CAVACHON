@@ -168,22 +168,21 @@ class SequentialTrainingScheduler:
 
     for component_order, train_components in enumerate(self.training_order):
       loss_weights = dict()
-      max_n_progressive_epochs = int(kwargs.get('epochs') / 4)
+      max_n_progressive_epochs = int(kwargs.get('epochs', 1) / 10)
       for component_config in self.component_configs:
         component_name = component_config.get('name')
         component = self.model.components.get(component_name)
         progressive_scaler = component.hierarchical_encoder.progressive_scaler
         if component_name in train_components:
           component.trainable = True
-          n_progressive_epochs = float(
+          n_progressive_epochs = float( 
               component_config.get(Constants.CONFIG_FIELD_COMPONENT_N_PROGRESSIVE_EPOCHS))
           progressive_iterations = n_batches * n_progressive_epochs
           progressive_scaler.total_iterations.assign(progressive_iterations)
-          progressive_scaler.current_iteration.assign(1.0)
+          progressive_scaler.current_iteration.assign(0.0)
           max_n_progressive_epochs = max(max_n_progressive_epochs, n_progressive_epochs)
         else:
           component.trainable = False
-          component.set_batchnorm_trainable(True)
           progressive_scaler.total_iterations.assign(1.0)
           progressive_scaler.current_iteration.assign(1.0)
           
@@ -204,7 +203,7 @@ class SequentialTrainingScheduler:
         callbacks.append(tf.keras.callbacks.EarlyStopping(
             monitor='loss',
             min_delta = 5,
-            patience = max_n_progressive_epochs + 50,
+            patience = max_n_progressive_epochs + 25,
             restore_best_weights=True,
             verbose=1))
       history.append(self.model.fit(x, callbacks=callbacks, **kwargs))

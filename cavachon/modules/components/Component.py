@@ -812,19 +812,3 @@ class Component(tf.keras.Model):
     
     names = ['loss'] + [x.name for x in self.compiled_loss._losses]
     return {name: m.result() for name, m in zip(names, self.metrics)}
-  
-  def set_batchnorm_trainable(self, trainable: bool = True):
-    """Set the trainable attributes of batch normalization layers. By
-    defuaults, trainable will overwrite the training argument in call.
-
-    Parameters
-    ----------
-    trainable : bool, optional
-        if the batch normalization is in training mode. Defaults to 
-        True.
-    """
-    TensorUtils.set_batchnorm_trainable(self.encoder, trainable)
-    for decoder in self.decoders.values():
-      TensorUtils.set_batchnorm_trainable(decoder, trainable)
-      
-    return
