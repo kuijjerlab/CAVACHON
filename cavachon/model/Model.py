@@ -383,8 +383,8 @@ class Model(tf.keras.Model):
           save_z_hat.setdefault(
               f'{component_name}/{modality_name}',
               component_config.get(field_save_z).get(modality_name))
-        if predict_x:
-          outputs.setdefault(f"{component_name}/{modality_name}/x_parameters", list())
+          if predict_x:
+            outputs.setdefault(f"{component_name}/{modality_name}/x_parameters", list())
 
       dataloader = DataLoader(x, batch_size=batch_size)
       for batch in tqdm(dataloader):

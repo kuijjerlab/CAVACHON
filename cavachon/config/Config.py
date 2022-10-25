@@ -76,7 +76,7 @@ class Config:
       default_n_latent_dims: int = 5,
       default_n_encoder_layers: int = 3,
       default_n_decoder_layers: int = 3,
-      default_n_progressive_epochs: int = 500) -> None:
+      default_n_progressive_epochs: int = 1) -> None:
     """Constructor for Config instance.
 
     Parameters

@@ -76,7 +76,9 @@ class Workflow():
     self.dataloader = DataLoader(self.mdata)
     self.update_nvars_batch_effect()
 
-    self.model = Model.make(self.config.components)
+    self.model = Model.make(
+        component_configs=self.config.components,
+        name=self.config.model.name)
     
     optimizer_config = self.config.training.get(Constants.CONFIG_FIELD_MODEL_TRAINING_OPTIMIZER)
     optimizer = optimizer_config.get('name', 'adam')
@@ -106,7 +108,7 @@ class Workflow():
         
     if self.config.training.train:
       self.train_history = self.train_scheduler.fit(
-          self.dataloader.dataset.batch(batch_size),
+          self.dataloader.dataset.shuffle(self.mdata.n_obs, reshuffle_each_iteration=False).batch(batch_size),
           epochs=max_epochs)
       if self.config.model.save_weights: 
         self.model.save_weights(
