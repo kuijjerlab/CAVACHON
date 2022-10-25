@@ -525,18 +525,12 @@ class Component(tf.keras.Model):
     preprocessor_inputs.pop(Constants.MODULE_INPUTS_CONDITIONED_Z, None)
     preprocessor_inputs.pop(Constants.MODULE_INPUTS_CONDITIONED_Z_HAT, None)
 
-    batch_effect = list()
     for modality_name in modality_names:
       modality_batch_key = f'{modality_name}/{Constants.TENSOR_NAME_BATCH}'
       preprocessor_inputs.pop(modality_batch_key, None)
-      batch_effect.append(inputs.get(modality_batch_key))
-    batch_effect = tf.concat(batch_effect, axis=-1)
 
     preprocessor_outputs = preprocessor(preprocessor_inputs)
-    encoder_inputs = tf.concat(
-        [preprocessor_outputs.get(preprocessor.matrix_key), batch_effect],
-        axis=-1)
-    z_parameters = encoder(encoder_inputs)
+    z_parameters = encoder(preprocessor_outputs.get(preprocessor.matrix_key))
     z = z_sampler(z_parameters)
 
     hierarchical_encoder_inputs.setdefault(Constants.MODEL_OUTPUTS_Z, z)
