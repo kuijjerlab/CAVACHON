@@ -20,11 +20,17 @@ class OptimizerConfig(ConfigMapping):
 
     Parameters
     ----------
-    config: Mapping[str, Any]:
-        optimizer config in mapping format.
+    name: str, optional
+        name of the optimizer. Defaults to 'adam'
+
+    learning_rate: float, optional
+        learning rate of the optimizer. Defaults to 1e-4.
     
     """
     # change default values here
-    self.name: str
-    self.learning_rate: float
+    self.name: str = 'adam'
+    self.learning_rate: float = 1e-4
     super().__init__(kwargs, ['name', 'learning_rate'])
+
+    # postprocessing
+    self.learning_rate = float(self.learning_rate)
