@@ -46,7 +46,9 @@ class DataLoader:
   def __init__(
       self,
       mdata: mu.MuData,
-      batch_size: int = 128) -> None:
+      batch_size: int = 128,
+      batch_effect_colnames: Mapping[str, List[str]] = dict(),
+      distribution_names: Mapping[str, str] = dict()) -> None:
     """Constructor for DataLoader
 
     Parameters
@@ -56,6 +58,21 @@ class DataLoader:
     
     batch_size: int, optional
         batch size used to create Iterator of dataset. Defaults to 128.
+
+    batch_effect_colnames: Optional[Mapping[str, List[str]]], optional
+        the column names of batch effect to correct. The keys should be
+        the modality names, the values are lists of batch effect column
+        names to correct for the corresponding modality. If not 
+        provided, adata.uns['cavachon']['batch_effect_colnames'] will 
+        be used. Defaults to {}.
+
+    distribution_names: Optional[Mapping[str, str]], optional
+        the distribution names of modality (used to perform data
+        modification). The keys should be the modality names, the values 
+        are the distribution names. If not provided, 
+        adata.uns['cavachon']['distribution'] will be used. Defaults
+        to {}.
+
     """
     self.batch_effect_encoder: Dict[str, LabelEncoder] = dict()
     self.n_vars_batch_effect: Dict[str, int] = dict()
@@ -63,14 +80,25 @@ class DataLoader:
     self.mdata: mu.MuData = mdata
     self.dataset: Optional[tf.data.Dataset] = None
     
-    self.create_dataset()
-    self.modify_dataset()
+    self.create_dataset(batch_effect_colnames)
+    self.modify_dataset(distribution_names)
 
     return
 
-  def create_dataset(self) -> tf.data.Dataset:
+  def create_dataset(
+      self, 
+      batch_effect_colnames: Mapping[str, List[str]] = dict()) -> tf.data.Dataset:
     """Create a Tensorflow Dataset based on the MuData provided in the 
     __init__ function.
+
+    Parameters
+    ----------
+    batch_effect_colnames: Optional[Mapping[str, List[str]]], optional
+        the column names of batch effect to correct. The keys should be
+        the modality names, the values are lists of batch effect column
+        names to correct for the corresponding modality. If not 
+        provided, adata.uns['cavachon']['batch_effect_colnames'] will 
+        be used.
 
     Returns
     -------
@@ -84,36 +112,9 @@ class DataLoader:
     for modality_name in modality_names:
       adata = self.mdata[modality_name]
       data_tensor = TensorUtils.spmatrix_to_sparse_tensor(adata.X)
-
-      # if the batch effect colnames is not in adata.uns['cavachon'], 
-      # assumes there is no batch effect.      
-      if issubclass(type(adata.uns), Mapping):
-        adata_config = adata.uns.get('cavachon', {})
-        batch_effect_colnames = adata_config.get(
-            Constants.CONFIG_FIELD_SAMPLE_MODALITY_BATCH_COLNAMES,
-            None)
-      else:
-        batch_effect_colnames = None
-
-      if (batch_effect_colnames is None or len(batch_effect_colnames) == 0):
-        # if batch_effect colname is not specified for the current 
-        # modality, use zero matrix as batch effect
-        batch_effect_tensor = tf.zeros((adata.n_obs, 1))
-        self.n_vars_batch_effect.setdefault(modality_name, 1)
-      else:
-        # otherwise, create one-hot encoding tensor for categorical 
-        # batch effect, single vector for continuous batch effect.
-        self.n_vars_batch_effect.setdefault(modality_name, 0)
-        batch_effect_tensor, encoder_mapping = TensorUtils.create_tensor_from_df(
-            adata.obs, batch_effect_colnames)
-        for colnames, encoder in encoder_mapping.items():
-          self.batch_effect_encoder[f'{modality_name}/{colnames}'] = encoder
-          if encoder is not None:
-            # categorical batch effect
-            self.n_vars_batch_effect[modality_name] += len(encoder.classes_)
-          else:
-            # continuous batch effect
-            self.n_vars_batch_effect[modality_name] += 1
+      batch_effect_tensor = self.setup_batch_effect_tensor(
+        modality_name=modality_name,
+        batch_effect_colnames=batch_effect_colnames)
 
       tensor_mapping.setdefault(
           f"{modality_name}/{Constants.TENSOR_NAME_X}",
@@ -124,18 +125,92 @@ class DataLoader:
     
     self.dataset = tf.data.Dataset.from_tensor_slices(tensor_mapping)
 
-  def modify_dataset(self) -> None:
-    """Modify the dataset based on the modifiers of distributions.
+  def setup_batch_effect_tensor(
+      self,
+      modality_name: str,
+      batch_effect_colnames: Mapping[str, List[str]] = dict()) -> tf.Tensor:
+    """Setup Tensor for batch effect, self.update n_vars_batch_effect
+    and self.batch_effect_encoder. 
 
+    Parameters
+    ----------
+    modality_name: str
+        modality name (keys to select adata, also used as keys to
+        update self.update n_vars_batch_effect and 
+        self.batch_effect_encoder)
+
+    batch_effect_colnames: Optional[Mapping[str, List[str]]], optional
+        the column names of batch effect to correct. The keys should be
+        the modality names, the values are lists of batch effect column
+        names to correct for the corresponding modality. If not 
+        provided, adata.uns['cavachon']['batch_effect_colnames'] will 
+        be used.
+
+    Returns
+    -------
+    tf.Tensor
+        Tensor of batch effect.
+    """
+    adata = self.mdata[modality_name]
+    # check if batch_effect_colnames is configured by parameters, 
+    # if modality_name is not in batch_effect_colnames and 
+    # batch_effect_colnames is not in adata.uns['cavachon'], assumes 
+    # there is no batch effect. 
+    batch_effect_colnames_modality = batch_effect_colnames.get(modality_name, None)
+    if batch_effect_colnames_modality is None and issubclass(type(adata.uns), Mapping):
+      adata_config = adata.uns.get('cavachon', {})
+      batch_effect_colnames_modality = adata_config.get(
+          Constants.CONFIG_FIELD_MODALITY_BATCH_COLNAMES,
+          None)
+
+    if (batch_effect_colnames_modality is None or len(batch_effect_colnames_modality) == 0):
+      # if batch_effect colname is not specified for the current 
+      # modality, use zero matrix as batch effect
+      batch_effect_tensor = tf.zeros((adata.n_obs, 1))
+      self.n_vars_batch_effect.setdefault(modality_name, 1)
+    else:
+      # otherwise, create one-hot encoding tensor for categorical 
+      # batch effect, single vector for continuous batch effect.
+      self.n_vars_batch_effect.setdefault(modality_name, 0)
+      batch_effect_tensor, encoder_mapping = TensorUtils.create_tensor_from_df(
+          adata.obs, batch_effect_colnames_modality)
+      for colnames, encoder in encoder_mapping.items():
+        self.batch_effect_encoder[f'{modality_name}/{colnames}'] = encoder
+        if encoder is not None:
+          # categorical batch effect
+          self.n_vars_batch_effect[modality_name] += len(encoder.classes_)
+        else:
+          # continuous batch effect
+          self.n_vars_batch_effect[modality_name] += 1
+
+    return batch_effect_tensor
+
+  def modify_dataset(
+      self,
+      distribution_names: Mapping[str, str] = dict()) -> None:
+    """Modify the dataset based on the modifiers of distributions 
+    inplace.
+
+    Parameters
+    ----------
+    distribution_names: Optional[Mapping[str, str]], optional
+        the distribution names of modality (used to perform data
+        modification). The keys should be the modality names, the values 
+        are the distribution names. If not provided, 
+        adata.uns['cavachon']['distribution'] will be used. Defaults
+        to {}.
+    
     """
     modality_names = self.mdata.mod.keys()
     for modality_name in modality_names:
       uns = self.mdata[modality_name].uns
       if issubclass(type(uns), Mapping):
         config = uns.get('cavachon', {})
-        distribution_name = config.get('distribution', '')
+        distribution_name = distribution_names.get(modality_name, '')
         if not distribution_name:
-          break
+          distribution_name = config.get('distribution', '')
+        if not distribution_name:
+          continue
         modifier_class = ReflectionHandler.get_class_by_name(
             distribution_name,
             'dataloader/modifiers')

@@ -68,13 +68,8 @@ class Workflow():
 
   def run(self) -> None:
     """Run the specified workflow configured in self.config"""
-    adata_dict = Workflow.read_modalities(self.config)
-    adata_dict = self.anndata_filters(adata_dict)
-    self.mdata = MultiModality(adata_dict)
-    self.update_config_nvars()
-
-    self.dataloader = DataLoader(self.mdata)
-    self.update_nvars_batch_effect()
+    self.setup_mdata()
+    self.setup_dataloader()
 
     self.model = Model.make(component_configs=self.config.components, name=self.config.model.name)
     
@@ -88,6 +83,13 @@ class Workflow():
 
     return
   
+  def setup_mdata(self) -> None:
+    """Setup mdata and update n_vars in the component config."""
+    adata_dict = Workflow.read_modalities(self.config)
+    adata_dict = self.anndata_filters(adata_dict)
+    self.mdata = MultiModality(adata_dict)
+    self.update_config_nvars()
+
   @staticmethod
   def read_modalities(config: Config) -> MutableMapping[str, anndata.AnnData]:
     """Read the modality files from the configuration.
@@ -150,6 +152,24 @@ class Workflow():
     self.config.components = processed_component_configs
     self.config.model[Constants.CONFIG_FIELD_MODEL_COMPONENT] = processed_component_configs
   
+    return
+
+  def setup_dataloader(self) -> None:
+    """Setup mdata and update n_vars_batch_effect in the component config."""
+    batch_size = self.config.dataset.get(Constants.CONFIG_FIELD_MODEL_DATASET_BATCHSIZE)
+    distribution_names = dict()
+    batch_effect_colnames = dict()
+    for modality_name, modality_config in self.config.modality.items():
+      distribution_names.setdefault(
+          modality_name, 
+          modality_config.get(Constants.CONFIG_FIELD_MODALITY_DIST))
+      batch_effect_colnames.setdefault(
+          modality_name,
+          modality_config.get(Constants.CONFIG_FIELD_MODALITY_BATCH_COLNAMES))
+    
+    self.dataloader = DataLoader(self.mdata, batch_size, batch_effect_colnames, distribution_names)
+    self.update_nvars_batch_effect()
+
     return
   
   def update_nvars_batch_effect(self) -> None:
