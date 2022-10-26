@@ -118,9 +118,6 @@ class FilterQC(AnnDataFilter):
       ))
       raise RuntimeError(message)
 
-    #adata = AnnDataUtils.reorder_or_filter_adata_obs(adata, obs_index)
-    adata = adata[obs_index]
-    adata.uns.setdefault('dummy', None)
-    adata.uns.pop('dummy', None)
+    adata = adata[obs_index].copy()
 
     return adata
