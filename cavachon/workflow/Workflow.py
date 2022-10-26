@@ -69,61 +69,22 @@ class Workflow():
   def run(self) -> None:
     """Run the specified workflow configured in self.config"""
     adata_dict = Workflow.read_modalities(self.config)
-    self.anndata_filters(adata_dict)
+    adata_dict = self.anndata_filters(adata_dict)
     self.mdata = MultiModality(adata_dict)
     self.update_config_nvars()
 
     self.dataloader = DataLoader(self.mdata)
     self.update_nvars_batch_effect()
 
-    self.model = Model.make(
-        component_configs=self.config.components,
-        name=self.config.model.name)
+    self.model = Model.make(component_configs=self.config.components, name=self.config.model.name)
     
-    optimizer_config = self.config.training.get(Constants.CONFIG_FIELD_MODEL_TRAINING_OPTIMIZER)
-    optimizer = optimizer_config.get('name', 'adam')
-    learning_rate = float(optimizer_config.get(
-        Constants.CONFIG_FIELD_MODEL_TRAINING_LEARNING_RATE, 
-        1e-3))
-    early_stopping = self.config.training.get(Constants.CONFIG_FIELD_MODEL_TRAINING_EARLY_STOPPING)
-    self.train_scheduler = SequentialTrainingScheduler(
-        self.model,
-        optimizer,
-        learning_rate,
-        early_stopping)
-    
-    batch_size = self.config.dataset.get(Constants.CONFIG_FIELD_MODEL_DATASET_BATCHSIZE)
-    max_epochs = self.config.training.get(Constants.CONFIG_FIELD_MODEL_TRAINING_N_EPOCHS)
+    self.setup_train_scheduler()
     if self.config.model.load_weights:
-      try:
-        self.model.load_weights(
-            os.path.join(f'{self.config.io.checkpointdir}', self.model.name))
-      except:
-        self.config.training[Constants.CONFIG_FIELD_MODEL_TRAINING_TRAIN] = True
-        message = ''.join((
-            f'Cannot load the pretrained weights in {self.config.io.checkpointdir}, force retrain '
-            f'the model.'
-        ))
-        warnings.warn(message, RuntimeWarning)
-        
+      self.load_model_weights()
     if self.config.training.train:
-      if self.config.dataset.get(Constants.CONFIG_FIELD_MODEL_DATASET_SHUFFLE):
-        self.dataloader.dataset.shuffle(self.mdata.n_obs, reshuffle_each_iteration=False).batch(batch_size)
-      else:
-        train_dataset = self.dataloader.dataset.batch(batch_size)
-      self.train_history = self.train_scheduler.fit(
-          train_dataset,
-          epochs=max_epochs)
-      if self.config.model.save_weights: 
-        self.model.save_weights(
-          os.path.join(f'{self.config.io.checkpointdir}', self.model.name))
-    for component in self.model.components.values():
-      component.trainable = False
-      progressive_scaler = component.hierarchical_encoder.progressive_scaler
-      progressive_scaler.total_iterations.assign(1.0)
-      progressive_scaler.current_iteration.assign(1.0)
-      self.model.compile()
-    self.outputs = self.model.predict(self.mdata, batch_size=batch_size)
+      self.train_model()
+    
+    self.predict()
 
     return
   
@@ -157,6 +118,24 @@ class Workflow():
     
     return modalities
   
+  def filter_adata_mapping(
+      self, 
+      adata_mapping: MutableMapping[str, anndata.AnnData]) -> MutableMapping[str, anndata.AnnData]:
+    """Filter the mapping of provided AnnData with self.anndata_filters.
+
+    Parameters
+    ----------
+    adata_mapping : MutableMapping[str, anndata.AnnData]
+        provided mapping of AnnData.
+
+    Returns
+    -------
+    MutableMapping[str, anndata.AnnData]
+        mapping of filtered AnnData.
+
+    """
+    return self.anndata_filters(adata_mapping)
+
   def update_config_nvars(self) -> None:
     """Update the number of variables in the config after filtering AnnData"""
     processed_component_configs = list()
@@ -187,4 +166,72 @@ class Workflow():
     self.config.components = processed_component_configs
     self.config.model[Constants.CONFIG_FIELD_MODEL_COMPONENT] = processed_component_configs
 
+    return
+  
+  def setup_train_scheduler(self) -> None:
+    """Setup the training scheduler"""
+    optimizer_config = self.config.training.get(Constants.CONFIG_FIELD_MODEL_TRAINING_OPTIMIZER)
+    optimizer = optimizer_config.get('name')
+    learning_rate = optimizer_config.get(Constants.CONFIG_FIELD_MODEL_TRAINING_LEARNING_RATE)
+    early_stopping = self.config.training.get(Constants.CONFIG_FIELD_MODEL_TRAINING_EARLY_STOPPING)
+    self.train_scheduler = SequentialTrainingScheduler(
+        self.model,
+        optimizer,
+        learning_rate,
+        early_stopping)
+      
+    return
+    
+  def load_model_weights(self) -> None:
+    """Load the pretrained model weights"""
+    try:
+      self.model.load_weights(
+          os.path.join(f'{self.config.io.checkpointdir}', self.model.name))
+    except:
+      message = ''.join((
+          f'Cannot load the pretrained weights in {self.config.io.checkpointdir}.'
+      ))
+      warnings.warn(message, RuntimeWarning)
+  
+    return None
+  
+  def train_model(self) -> None:
+    """Train the model and save the weights if model.save_weights is 
+    set to True.
+    
+    """
+    batch_size = self.config.dataset.get(Constants.CONFIG_FIELD_MODEL_DATASET_BATCHSIZE)
+    max_epochs = self.config.training.get(Constants.CONFIG_FIELD_MODEL_TRAINING_N_EPOCHS)
+
+    # shuffle dataset if needed
+    if self.config.dataset.get(Constants.CONFIG_FIELD_MODEL_DATASET_SHUFFLE):
+      self.dataloader.dataset.shuffle(self.mdata.n_obs).batch(batch_size)
+    else:
+      train_dataset = self.dataloader.dataset.batch(batch_size)
+
+    # train the model
+    self.train_history = self.train_scheduler.fit(
+        train_dataset,
+        epochs=max_epochs)
+    
+    # save the weights if needed
+    if self.config.model.save_weights: 
+      self.model.save_weights(
+        os.path.join(f'{self.config.io.checkpointdir}', self.model.name))
+
+    # change the training states to False
+    for component in self.model.components.values():
+      component.trainable = False
+      progressive_scaler = component.hierarchical_encoder.progressive_scaler
+      progressive_scaler.total_iterations.assign(1.0)
+      progressive_scaler.current_iteration.assign(1.0)
+      self.model.compile()
+    
+    return
+  
+  def predict(self) -> None:
+    """Predict generative process for self.mdata."""
+    batch_size = self.config.dataset.get(Constants.CONFIG_FIELD_MODEL_DATASET_BATCHSIZE)
+    self.outputs = self.model.predict(self.mdata, batch_size=batch_size)
+    
     return
