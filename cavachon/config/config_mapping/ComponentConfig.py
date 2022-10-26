@@ -100,7 +100,8 @@ class ComponentConfig(ConfigMapping):
         number of latent dimensions. Defaults to 5.
     
     n_latent_priors: int, optional
-        number of priors for the latent distributions. Defaults to 11.
+        number of priors for the latent distributions. Defaults to 
+        `n_latent_dims * 2 + 1`.
 
     n_encoder_layers: int, optional
         number of encoder layers. Defaults to 3.
@@ -118,7 +119,7 @@ class ComponentConfig(ConfigMapping):
     self.n_vars: Mapping[str, int] = dict()
     self.n_vars_batch_effect: Mapping[str, int] = dict()
     self.n_latent_dims: int = 5
-    self.n_latent_priors: int = 11
+    self.n_latent_priors: int = 0 # will be changed during postprocessing
     self.n_encoder_layers: int = 3
     self.n_decoder_layers: Mapping[str, int] = dict()
     self.n_progressive_epochs: int = 1
@@ -146,6 +147,8 @@ class ComponentConfig(ConfigMapping):
     # postprocessing
     ## name
     self.name = GeneralUtils.tensorflow_compatible_str(self.name)
+    if self.n_latent_priors <= 0:
+      self.n_latent_priors = 2 * self.n_latent_dims + 1
 
     ## distribution_names, n_decoder_layers, save_x, save_z
     expected_fields = {'name', 'distribution_names', 'n_decoder_layers', 'save_x', 'save_z'}
