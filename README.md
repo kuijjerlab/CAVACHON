@@ -164,7 +164,7 @@ Create a new class that inherent either the `cavachon.model.Model` or `cavachon.
 1. Use the same directory structure as in `cavachon` in the `test` directory. 
 2. Create a module named `test_${module_name}.py`. For instance: `test_TensorUtils.py`.
 3. Create a class named `${class_name}TestCase`. For instance `TensorUtilsTestCase`.
-4. It's recommended to use `pytest` to implement the unit test.
+4. It's recommended to use `unittest` to implement the unit test.
 
 ## Todos
 * GSEA Analysis

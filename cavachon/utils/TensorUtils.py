@@ -74,26 +74,6 @@ class TensorUtils:
     return gradients
 
   @staticmethod
-  def set_batchnorm_trainable(model: tf.keras.Model, trainable: bool = True):
-    """Set the trainable attributes of batch normalization layers. By
-    defuaults, trainable will overwrite the training argument in call.
-
-    Parameters
-    ----------
-    model : tf.keras.Model
-        input model.
-
-    trainable : bool, optional
-        if the batch normalization is in training mode. Defaults to 
-        True.
-        
-    """
-    for layer in model.layers:
-      if isinstance(layer, tf.keras.layers.BatchNormalization):
-        layer.trainable = trainable
-    return
-
-  @staticmethod
   def create_backbone_layers(
       n_layers: int = 3,
       base_n_neurons: int = 128,
@@ -180,7 +160,8 @@ class TensorUtils:
       the one-hot encoded Tensor. The second element is the dictionary
       of LabelEncoder used to map the categorical variable into scalar 
       representation, where the keys are the column names and the values
-      are the correponding LabelEncoder. 
+      are the correponding LabelEncoder. The value will be None if 
+      the column data is not a continous variable.
     """
     # if no valid batch effect column is provided, use zero vector for batch effect
     encoder_dict = dict()
