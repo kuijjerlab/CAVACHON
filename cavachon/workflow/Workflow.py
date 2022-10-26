@@ -106,18 +106,18 @@ class Workflow():
       modality_config = config.modality[modality_name]
       h5ad = modality_config.get(Constants.CONFIG_FIELD_MODALITY_H5AD)
       if h5ad:
-        modalities.setdefault(
-            modality_name,
-            anndata.read_h5ad(os.path.join(config.io.datadir, h5ad)))
+        adata = anndata.read_h5ad(os.path.join(config.io.datadir, h5ad))
       else:
-        modalities.setdefault(
-            modality_name,
-            Modality(
-                FileReader.read_multiomics_data(config, modality_name), 
-                name=modality_name,
-                distribution_name=modality_config.get(Constants.CONFIG_FIELD_MODALITY_DIST),
-                modality_type=modality_config.get(Constants.CONFIG_FIELD_MODALITY_TYPE)))
-    
+        adata = FileReader.read_multiomics_data(config, modality_name)
+      modalities.setdefault(
+          modality_name,
+          Modality(
+              adata, 
+              name=modality_name,
+              modality_type=modality_config.get(Constants.CONFIG_FIELD_MODALITY_TYPE),
+              distribution_name=modality_config.get(Constants.CONFIG_FIELD_MODALITY_DIST),
+              batch_effect_colnames=modality_config.get(Constants.CONFIG_FIELD_MODALITY_BATCH_COLNAMES)))
+  
     return modalities
   
   def filter_adata_mapping(
