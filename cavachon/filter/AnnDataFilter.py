@@ -5,8 +5,7 @@ class AnnDataFilter(Callable):
   """AnnDataFilter
   
   Filter for AnnData. Used as an adaptor between the scanpy 
-  preprocessing methods and the configs. Note that the preprocessing
-  step will be performed inplace.
+  preprocessing methods and the configs.
 
   Attributes
   ----------

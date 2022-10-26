@@ -61,15 +61,21 @@ class AnnDataFilterHandler(Callable):
     return cls(steps)
 
   def __call__(self, target: Mapping[str, anndata.AnnData]):
-    """Perform preprocessing to all AnnDatas in the provided target.
+    """Perform preprocessing to all AnnDatas in the provided target. 
+    Note that the values in the target will be filtered.
 
     Parameters
     ----------
     target: Mapping[str, anndata.AnnData]
         Mapping of AnnData to preprocessed.
+    
+    Returns
+    -------
 
     """
     for modality_name, modality in target.items():
       for step_runner in self.steps.get(modality_name):
-        step_runner(modality)
-    return
+        modality = step_runner(modality)
+      target[modality_name] = modality
+
+    return target
