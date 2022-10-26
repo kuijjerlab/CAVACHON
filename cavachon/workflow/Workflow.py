@@ -251,6 +251,8 @@ class Workflow():
   
   def predict(self) -> None:
     """Predict generative process for self.mdata."""
+    self.model.trainable = False
+    self.model.compile()
     batch_size = self.config.dataset.get(Constants.CONFIG_FIELD_MODEL_DATASET_BATCHSIZE)
     self.outputs = self.model.predict(self.mdata, batch_size=batch_size)
     

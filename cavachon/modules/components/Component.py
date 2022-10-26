@@ -812,3 +812,47 @@ class Component(tf.keras.Model):
     
     names = ['loss'] + [x.name for x in self.compiled_loss._losses]
     return {name: m.result() for name, m in zip(names, self.metrics)}
+
+  def __setattr__(self, name: str, value: Any) -> None:
+    """Overwrite __setattr__ function, so that everytime setting
+    trainable to False, it automatically set alpha in the 
+    progressive_scaler to 1.0.
+
+    Parameters
+    ----------
+    name: str
+        name of the attributes
+
+    value: Any
+        new value of the attributes.
+
+    """
+    super().__setattr__(name, value)
+    if name == 'trainable':
+      if not value:
+        self.set_progressive_scaler_iteration(1, 1)
+    
+    return
+     
+  def set_progressive_scaler_iteration(
+      self,
+      current_iteration: int = 1,
+      total_iterations: int = 1) -> None:
+    """Set the alpha values (current iteration and total iterations) 
+    for the hierarchical encoder.
+
+    Parameters
+    ----------
+    current_iteration: int, optional
+        current iteration. Defaults to 1.
+
+    total_iterations: int, optional
+        total iteartions, Defaults to 1.
+    """
+    total_iterations = float(total_iterations)
+    current_iteration = float(current_iteration)
+    progressive_scaler = self.hierarchical_encoder.progressive_scaler
+    progressive_scaler.total_iterations.assign(total_iterations)
+    progressive_scaler.current_iteration.assign(current_iteration)
+    
+    return

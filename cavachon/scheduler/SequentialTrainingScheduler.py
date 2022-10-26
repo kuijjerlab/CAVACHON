@@ -1,7 +1,7 @@
 from cavachon.environment.Constants import Constants
 from collections import defaultdict
 from copy import deepcopy
-from typing import List, Mapping, Union
+from typing import Any, List, Mapping, Optional, Tuple, Union
 
 import itertools
 import tensorflow as tf
@@ -20,7 +20,7 @@ class SequentialTrainingScheduler:
   component_configs: List[ComponentConfig]
       the config used to create the components in the model.
   
-  optimizer: tf.keras.optimizers.Optimizer
+  optimizer: str
       optimizer used to train the model (only the attributes of the
       optimizer will be used)
 
@@ -41,8 +41,8 @@ class SequentialTrainingScheduler:
   def __init__(
       self,
       model: tf.keras.Model,
-      optimizer: Union[tf.keras.optimizers.Optimizer, str] = 'adam',
-      learning_rate: float = 1e-3,
+      optimizer: str = 'adam',
+      learning_rate: float = 1e-4,
       early_stopping: bool = True):
     """Constructor for SequentialTrainingScheduler.
 
@@ -57,7 +57,7 @@ class SequentialTrainingScheduler:
         'adam'.
     
     learning_rate: float, optional
-        learning rate for the optimizer. Defaults to 1e-3.
+        learning rate for the optimizer. Defaults to 1e-4.
     
     early_stopping: bool, optional
         whether or not to use early stopping when training the model. 
@@ -66,13 +66,10 @@ class SequentialTrainingScheduler:
     self.model = model
     self.component_configs = self.model.component_configs
     self.optimizer = optimizer
+    self.learning_rate = learning_rate
     self.early_stopping = early_stopping
     self.training_order = self.compute_component_training_order()
     self.modality_weight = self.compute_modality_weight()
-    if isinstance(optimizer, str):
-      self.optimizer = tf.keras.optimizers.get(optimizer).__class__(learning_rate=learning_rate)
-    else:
-      self.optimizer.learning_rate = learning_rate
 
   def compute_component_training_order(self) -> Mapping[int, List[str]]:
     """Compute the training order of the components based on the order
@@ -163,58 +160,100 @@ class SequentialTrainingScheduler:
     """
     
     n_batches = len(x)
-    learning_rate = self.optimizer.learning_rate
+    learning_rate = self.learning_rate
     history = []
 
     for component_order, train_components in enumerate(self.training_order):
-      loss_weights = dict()
-      max_n_progressive_epochs = int(kwargs.get('epochs', 1) / 10)
-      for component_config in self.component_configs:
-        component_name = component_config.get('name')
-        component = self.model.components.get(component_name)
-        progressive_scaler = component.hierarchical_encoder.progressive_scaler
-        if component_name in train_components:
-          component.trainable = True
-          n_progressive_epochs = float( 
-              component_config.get(Constants.CONFIG_FIELD_COMPONENT_N_PROGRESSIVE_EPOCHS))
-          progressive_iterations = n_batches * n_progressive_epochs
-          progressive_scaler.total_iterations.assign(progressive_iterations)
-          progressive_scaler.current_iteration.assign(0.0)
-          max_n_progressive_epochs = max(max_n_progressive_epochs, n_progressive_epochs)
-        else:
-          component.trainable = False
-          progressive_scaler.total_iterations.assign(1.0)
-          progressive_scaler.current_iteration.assign(1.0)
-          
-        loss_weights.setdefault(
-            f"{component_name}/{Constants.MODEL_LOSS_KL_POSTFIX}",
-            1.0)
-        for modality_name in component_config.get(Constants.CONFIG_FIELD_COMPONENT_MODALITY_NAMES):
-          loss_weights.setdefault(
-              f"{component_name}/{modality_name}/{Constants.MODEL_LOSS_DATA_POSTFIX}",
-              self.modality_weight.get(component_name).get(modality_name))
+      # progressive training
+      if component_order != 0:
+        loss_weights, max_n_progressive_epochs = self.setup_component_and_loss_weights(
+            train_components = train_components, 
+            n_batches = n_batches,
+            initial_iteration = 0.0)
+        optimizer = tf.keras.optimizers.get(self.optimizer).__class__(learning_rate=learning_rate)
+        self.model.compile(optimizer=optimizer, loss_weights=loss_weights)
+        kwargs_progressive = deepcopy(kwargs)
+        kwargs_progressive.pop('epochs', None)
+        history.append(self.model.fit(x, epochs=max_n_progressive_epochs, **kwargs_progressive))
 
-      self.model.compile(
-          optimizer=self.optimizer.__class__(learning_rate=learning_rate),
-          loss_weights=loss_weights)
-
+      # non-progressive training
+      loss_weights, max_n_progressive_epochs = self.setup_component_and_loss_weights(
+          train_components = train_components, 
+          n_batches = n_batches,
+          initial_iteration = None)
+      optimizer = tf.keras.optimizers.get(self.optimizer).__class__(learning_rate=learning_rate)
+      self.model.compile(optimizer=optimizer, loss_weights=loss_weights)
       callbacks = deepcopy(kwargs.get('callbacks', []))
       if self.early_stopping:
         callbacks.append(tf.keras.callbacks.EarlyStopping(
             monitor='loss',
             min_delta = 5,
-            patience = max_n_progressive_epochs + 25,
+            patience = max(10, int(kwargs.get('epochs', 1) / 10)),
             restore_best_weights=True,
             verbose=1))
       history.append(self.model.fit(x, callbacks=callbacks, **kwargs))
-    
-    for component in self.model.components.values():
-      component.trainable = False
-      progressive_scaler = component.hierarchical_encoder.progressive_scaler
-      progressive_scaler.total_iterations.assign(1.0)
-      progressive_scaler.current_iteration.assign(1.0)
-
-    self.model.compile()
 
     return history
-  
+
+  def setup_component_and_loss_weights(
+      self,
+      train_components: List[str],
+      n_batches = int,
+      initial_iteration: Optional[int] = None) -> Tuple[Any]:
+    """Setup the trainable attributes for each component and the alpha
+    (with current_iteration and total_iterations) in progressive scaler
+    and set the loss weights properly (for components that take more
+    than one modality).
+
+    Parameters
+    ----------
+    train_components : List[str]
+        list of component names for components that need to be trained 
+        in this sequential step.
+
+    n_batches: int
+        number of batches needed to processed in one epoch.
+
+    initial_iteration : Optional[int], optional
+        initial iteration for progressive scaler when the training 
+        starts. The progressive training will be turn off if provided 
+        with None. Defaults to None.
+
+    Returns
+    -------
+    Tuple[Any]
+        The first element in the tuple is the loss weights, the second
+        element is the maximum number of progressive epochs.
+    """
+    loss_weights = dict()
+    max_n_progressive_epochs = 0
+    for component_config in self.component_configs:
+      component_name = component_config.get('name')
+      component = self.model.components.get(component_name)
+      if component_name in train_components:
+        component.trainable = True
+        
+        n_progressive_epochs = float( 
+            component_config.get(Constants.CONFIG_FIELD_COMPONENT_N_PROGRESSIVE_EPOCHS))
+        progressive_iterations = n_batches * n_progressive_epochs
+        max_n_progressive_epochs = max(max_n_progressive_epochs, n_progressive_epochs)
+        
+        # For non-progressive training
+        if initial_iteration is None or initial_iteration <= 0:
+          initial_iteration = progressive_iterations
+
+        component.set_progressive_scaler_iteration(
+            current_iteration = initial_iteration,
+            total_iterations = progressive_iterations)
+      else:
+        component.trainable = False
+        
+      loss_weights.setdefault(
+          f"{component_name}/{Constants.MODEL_LOSS_KL_POSTFIX}",
+          1.0)
+      for modality_name in component_config.get(Constants.CONFIG_FIELD_COMPONENT_MODALITY_NAMES):
+        loss_weights.setdefault(
+            f"{component_name}/{modality_name}/{Constants.MODEL_LOSS_DATA_POSTFIX}",
+            self.modality_weight.get(component_name).get(modality_name))
+    
+    return loss_weights, int(max_n_progressive_epochs)

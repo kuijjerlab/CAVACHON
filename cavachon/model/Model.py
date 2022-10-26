@@ -518,3 +518,23 @@ class Model(tf.keras.Model):
     
     names = ['loss'] + [x.name for x in self.compiled_loss._losses]
     return {name: m.result() for name, m in zip(names, self.metrics)}
+  
+  def __setattr__(self, name: str, value: Any) -> None:
+    """Overwrite __setattr__ function, so that everytime setting
+    trainable to False, it automatically set alpha in the 
+    progressive_scaler of every components to 1.0.
+
+    Parameters
+    ----------
+    name: str
+        name of the attributes
+
+    value: Any
+        new value of the attributes.
+
+    """
+    super().__setattr__(name, value)
+    if name == 'trainable':
+      if not value:
+        for component_name in self.components.keys():
+          self.components[component_name].trainable = value
