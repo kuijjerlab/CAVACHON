@@ -7,9 +7,8 @@ import tensorflow as tf
 from cavachon.environment.Constants import Constants
 from cavachon.utils.ReflectionHandler import ReflectionHandler
 from cavachon.utils.TensorUtils import TensorUtils
-from collections import defaultdict
 from sklearn.preprocessing import LabelEncoder
-from typing import Dict, Iterator, Mapping, Optional
+from typing import Dict, Iterator, List, Mapping, Optional
 
 class DataLoader:
   """DataLoader
