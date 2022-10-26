@@ -11,6 +11,7 @@ class NegativeLogDataLikelihood(tf.keras.losses.Loss):
   def __init__(
       self,
       dist_x_z: str,
+      weight: float = 1.0,
       name: str = 'negative_log_data_likelihood',
       **kwargs):
     """Constructor for NegativeLogDataLikelihood
@@ -21,7 +22,11 @@ class NegativeLogDataLikelihood(tf.keras.losses.Loss):
         the name for the distributions implemented in 
         cavachon.distributions
 
-    name: str.
+    weight: float, optional
+        the scaling factor for the loss. The output will be 
+        weight * loss. Defaults to 1.0.
+
+    name: str, optional
         name for the tf.keras.losses.Loss (will be used when reporting
         the loss during training_step in Component and Model).
         Defaults to 'negative_log_data_likelihood'.
@@ -30,6 +35,7 @@ class NegativeLogDataLikelihood(tf.keras.losses.Loss):
         additional parameters for tf.keras.losses.Loss
 
     """
+    self.weight = weight
     super().__init__(name=name, reduction=tf.keras.losses.Reduction.SUM_OVER_BATCH_SIZE, **kwargs)
     if isinstance(dist_x_z, str):
       dist_x_z = ReflectionHandler.get_class_by_name(dist_x_z, 'distributions')
@@ -59,4 +65,4 @@ class NegativeLogDataLikelihood(tf.keras.losses.Loss):
     dist_x_z = self.dist_x_z_class.from_parameterizer_output(y_pred)
     logpx_z = tf.reduce_sum(dist_x_z.log_prob(y_true), axis=-1)
 
-    return -logpx_z
+    return -self.weight * logpx_z

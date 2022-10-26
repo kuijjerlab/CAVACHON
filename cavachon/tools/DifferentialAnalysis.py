@@ -1,8 +1,7 @@
 from cavachon.dataloader.DataLoader import DataLoader
 from cavachon.environment.Constants import Constants
 from cavachon.utils.ReflectionHandler import ReflectionHandler
-from collections.abc import Callable
-from typing import Dict, Sequence, Union
+from typing import Sequence, Union
 from tqdm import tqdm
 
 import muon as mu
@@ -10,7 +9,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-class DifferentialAnalysis(Callable):
+class DifferentialAnalysis:
   """DifferentialAnalysis
 
   Differential analysis between two groups of samples.
@@ -42,7 +41,7 @@ class DifferentialAnalysis(Callable):
     self.mdata = mdata
     self.model = model
 
-  def __call__(
+  def between_two_groups(
       self, 
       group_a_index: Union[pd.Index, Sequence[str]],
       group_b_index: Union[pd.Index, Sequence[str]],
@@ -118,7 +117,7 @@ class DifferentialAnalysis(Callable):
     index = self.mdata.mod[modality].var.index 
 
     return self.compute_bayesian_factor(x_means_a, x_means_b, index)
-  
+
   def sample_mdata_x(
       self,
       index: Union[pd.Index, Sequence[str]],

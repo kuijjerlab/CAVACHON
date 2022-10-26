@@ -129,10 +129,9 @@ class TensorUtils:
     """
 
     layers = []
-    for no_layer in range(0, n_layers - 1):
+    for no_layer in range(0, n_layers):
       n_neurons = max(base_n_neurons * rate ** no_layer, max_n_neurons)
       layers.append(tf.keras.layers.Dense(n_neurons, activation=activation))
-      layers.append(tf.keras.layers.BatchNormalization())
     
     if reverse:
       layers.reverse()
@@ -161,7 +160,8 @@ class TensorUtils:
       the one-hot encoded Tensor. The second element is the dictionary
       of LabelEncoder used to map the categorical variable into scalar 
       representation, where the keys are the column names and the values
-      are the correponding LabelEncoder. 
+      are the correponding LabelEncoder. The value will be None if 
+      the column data is not a continous variable.
     """
     # if no valid batch effect column is provided, use zero vector for batch effect
     encoder_dict = dict()
@@ -231,4 +231,4 @@ class TensorUtils:
     coo_matrix = spmatrix.tocoo()
     indices = np.mat([coo_matrix.row, coo_matrix.col]).transpose()
     sparse_tensor = tf.SparseTensor(indices, coo_matrix.data, coo_matrix.shape)
-    return tf.cast(sparse_tensor, tf.float32)
+    return tf.sparse.reorder(tf.cast(sparse_tensor, tf.float32))

@@ -1,4 +1,4 @@
-from cavachon.config.ComponentConfig import ComponentConfig
+from cavachon.config.config_mapping.ComponentConfig import ComponentConfig
 from cavachon.dataloader.DataLoader import DataLoader
 from cavachon.environment.Constants import Constants
 from cavachon.layers.modifiers import ToDense
@@ -360,9 +360,11 @@ class Model(tf.keras.Model):
       field_save_z = Constants.CONFIG_FIELD_COMPONENT_MODALITY_SAVE_Z
       save_x = dict()
       save_z = dict()
+      save_z_hat = dict()
       for component_config in self.component_configs:
         component_name = component_config.name
         outputs.setdefault(f"{component_name}/z", list())
+        outputs.setdefault(f"{component_name}/z_hat", list())
         modality_names = component_config.get(Constants.CONFIG_FIELD_COMPONENT_N_VARS).keys()
         predict_x = False
 
@@ -378,8 +380,11 @@ class Model(tf.keras.Model):
           save_z.setdefault(
               f'{component_name}/{modality_name}',
               component_config.get(field_save_z).get(modality_name))
-        if predict_x:
-          outputs.setdefault(f"{component_name}/{modality_name}/x_parameters", list())
+          save_z_hat.setdefault(
+              f'{component_name}/{modality_name}',
+              component_config.get(field_save_z).get(modality_name))
+          if predict_x:
+            outputs.setdefault(f"{component_name}/{modality_name}/x_parameters", list())
 
       dataloader = DataLoader(x, batch_size=batch_size)
       for batch in tqdm(dataloader):
@@ -394,6 +399,9 @@ class Model(tf.keras.Model):
           if save_z.get(f'{component_name}/{modality_name}'):
             x.mod[modality_name].obsm[f'z_{component_name}'] = outputs.get(
                 f"{component_name}/z")
+          if save_z.get(f'{component_name}/{modality_name}'):
+            x.mod[modality_name].obsm[f'z_hat_{component_name}'] = outputs.get(
+                f"{component_name}/z_hat")
           if save_x.get(f'{component_name}/{modality_name}'):
             x.mod[modality_name].obsm[f'x_parameters_{component_name}'] = outputs.get(
                 f"{component_name}/{modality_name}/x_parameters")
@@ -406,8 +414,8 @@ class Model(tf.keras.Model):
       self,
       **kwargs) -> None:
     """Compile the model before training. Note that the 'metrics' will 
-    be ignored in Model due to some unexpected behaviour for Tensorflow. 
-    The 'loss' will be setup automatically if not provided.
+    be ignored in Model becaus of the incompatibility with Tensorflow
+    API. The 'loss' will be setup automatically if not provided.
 
     Parameters
     ----------
@@ -415,6 +423,9 @@ class Model(tf.keras.Model):
         Additional parameters used to compile the model.
 
     """
+    loss_weights = kwargs.get('loss_weights', dict())
+    kwargs.pop('loss_weights', None)
+
     if 'loss' not in kwargs:
       loss = dict()
       for component_config in self.component_configs:
@@ -422,7 +433,7 @@ class Model(tf.keras.Model):
         kl_divergence_name = f'{component_name}/{Constants.MODEL_LOSS_KL_POSTFIX}'
         loss.setdefault(
             kl_divergence_name,
-            KLDivergence(name=kl_divergence_name))
+            KLDivergence(loss_weights.get(kl_divergence_name, 1.0), name=kl_divergence_name))
 
         for modality_name in component_config.get('modality_names'):
           nldl_name = f'{component_name}/{modality_name}/{Constants.MODEL_LOSS_DATA_POSTFIX}'
@@ -432,6 +443,7 @@ class Model(tf.keras.Model):
               nldl_name,
               NegativeLogDataLikelihood(
                   distribution_names.get(modality_name),
+                  loss_weights.get(nldl_name, 1.0),
                   name=nldl_name))
       kwargs.setdefault('loss', loss)
     else:
@@ -442,9 +454,9 @@ class Model(tf.keras.Model):
     
     if 'metrics' in kwargs:
       message = ''.join((
-        f'Due to the unexpected behaviour with compiled_loss when providing less number ',
-        f'of custom losses in Tensorflow 2.8.0. The custom metrics provided to compile() in',
-        f'{self.__class__.__name__} will be ignored.'))
+        f'Due to the incompatibility of the compiled_loss with Tensorflow 2.8.1 (as the model ',
+        f'requires outputs from multiple components to compute the KLDivergence), The custom ',
+        f'metrics provided to compile() in {self.__class__.__name__} will be ignored.'))
       warnings.warn(message, RuntimeWarning)
       kwargs.pop('metrics')
 
@@ -507,3 +519,22 @@ class Model(tf.keras.Model):
     names = ['loss'] + [x.name for x in self.compiled_loss._losses]
     return {name: m.result() for name, m in zip(names, self.metrics)}
   
+  def __setattr__(self, name: str, value: Any) -> None:
+    """Overwrite __setattr__ function, so that everytime setting
+    trainable to False, it automatically set alpha in the 
+    progressive_scaler of every components to 1.0.
+
+    Parameters
+    ----------
+    name: str
+        name of the attributes
+
+    value: Any
+        new value of the attributes.
+
+    """
+    super().__setattr__(name, value)
+    if name == 'trainable':
+      if not value:
+        for component_name in self.components.keys():
+          self.components[component_name].trainable = value

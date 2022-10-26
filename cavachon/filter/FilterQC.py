@@ -15,8 +15,9 @@ class FilterQC(AnnDataFilter):
   Filter for AnnData. Used as an adaptor between the 
   scanpy.pp.calculate_qc_metrics() and the configs. After the quality
   metrics is computed, the filtering will be performed based on the
-  proprotion of controlled genes. Note that the preprocessing step will 
-  be performed inplace.
+  proprotion of controlled genes. Note that FilterQC will not be 
+  performed inplace regardless the value of kwargs['inplace'] 
+  (as assignment is needed for the the subsetting).
 
   Attributes
   ----------
@@ -92,6 +93,8 @@ class FilterQC(AnnDataFilter):
     for qc_var in kwargs_copy.setdefault('qc_vars', ['ERCC', 'MT']):
       adata.var[qc_var] = adata.var[index_colname].str.match(qc_var)
     
+    # make sure calculate_qc_metrics is run inplace.
+    kwargs_copy['inplace'] = True
     scanpy.pp.calculate_qc_metrics(adata, **kwargs_copy)
 
     for filter_criteria in filter_criteria_list:
@@ -115,9 +118,6 @@ class FilterQC(AnnDataFilter):
       ))
       raise RuntimeError(message)
 
-    #adata = AnnDataUtils.reorder_or_filter_adata_obs(adata, obs_index)
-    adata = adata[obs_index]
-    adata.uns.setdefault('dummy', None)
-    adata.uns.pop('dummy', None)
+    adata = adata[obs_index].copy()
 
     return adata

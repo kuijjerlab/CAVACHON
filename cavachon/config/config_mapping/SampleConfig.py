@@ -1,5 +1,5 @@
-from cavachon.config.ConfigMapping import ConfigMapping
-from cavachon.config.ModalityFileConfig import ModalityFileConfig
+from cavachon.config.config_mapping.ConfigMapping import ConfigMapping
+from cavachon.config.config_mapping.ModalityFileConfig import ModalityFileConfig
 from typing import Any, List, Mapping
 
 class SampleConfig(ConfigMapping):
@@ -20,7 +20,7 @@ class SampleConfig(ConfigMapping):
 
   """
 
-  def __init__(self, config: Mapping[str, Any]):
+  def __init__(self, **kwargs: Mapping[str, Any]):
     """Constructor for SampleConfig. 
 
     Parameters
@@ -29,9 +29,13 @@ class SampleConfig(ConfigMapping):
         sample config in mapping format.
     
     """
+    # change default values here
     self.name: str
-    self.description: str
+    self.description: str = ''
     self.modalities: List[ModalityFileConfig] = list()
-    super().__init__(config)
+    
+    super().__init__(kwargs, ['name', 'description', 'modalities'])
+    
+    # postprocessing
     for i in range(len(self.modalities)):
-      self.modalities[i] = ModalityFileConfig(self.modalities[i])
+      self.modalities[i] = ModalityFileConfig(**self.modalities[i])

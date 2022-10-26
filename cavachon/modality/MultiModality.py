@@ -53,10 +53,7 @@ class MultiModality(muon.MuData):
         index = adata.obs.index if index is None else index.intersection(adata.obs.index)
       for key in data.keys():
         adata = data.get(key)
-        # workaround to turn a view of AnnData to real AnnData.
-        adata = adata[index]
-        adata.uns.setdefault('dummy', None)
-        adata.uns.pop('dummy', None)
+        adata = adata[index].copy()
         data[key] = adata
 
     super().__init__(data, *args, **kwargs)

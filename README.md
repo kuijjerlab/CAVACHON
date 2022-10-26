@@ -2,8 +2,11 @@
 **C**ell cluster **A**nalysis with **V**ariational **A**utoencoder using **C**onditional **H**ierarchy **Of** latent representio**N** is the Tensorflow implementation of the research "[_Using hierarchical variational autoencoders to incorporate conditional independent priors for paired single-cell multi-omics data integration_ (NeurIPS LMRL Workshop 2022 accepted paper)](https://drive.google.com/file/d/1-WLQ3fQtIffnC2_b64iEw_6to4bcJrfi/view?usp=sharing)" by PH Hsieh, RX Hsiao, T Belova, KT Ferenc, A Mathelier, R Burkholz, CY Chen, GK Sandve, ML Kuijjer.
 
 ## Installation
-```
+```batch
+# for developers
 pip install -r requirements.txt
+ 
+# for users
 pip install -e .
 ```
 
@@ -125,6 +128,10 @@ InteractiveVisualization.neighbors_with_same_annotations(mdata=workflow.mdata,
 ![nearest_neighbors_rna](./assets/nearest_neighbors_rna.png)
 
 ## For Developers
+### General
+1. Please develop on feauture branch with name `feature/${NAME}`, and send a pull request to the `develop` branch when finish the implementation.
+2. It is recommended to use Numpy style docstring with 72 characters a line. For the code implementation, the line can be extended to 99 characters.
+
 ### Implement Custom Data Likelihood
 1. The custom data distribution needs to be implemented by inherent the class `cavachon.distributions.Distribution`. The custom data distribution can also inherent from the `tensorflow_probability.distributions.Distribution`. In both cases, the class function `from_parameterizer_output` will need to be implemented. This function takes an Tensor as inputs (usually the output from a neural network that outputs the parameters for the distribution) and creates a  `tensorflow_probability.distributions.Distribution` object.
 2. (Optional) Implement modifiers **before** loading batch of the data. This preprocessing step is particularlly important to avoid gradient overflow if the input is not bounded (see `cavachon.dataloader.modifiers`).
@@ -152,6 +159,12 @@ Create a new class that inherent either the `cavachon.model.Model` or `cavachon.
 ### Implement Custom Losses
 1. Create custom losses (`tf.keras.losses.Loss`) (see `cavachon.losses`).
 2. Modify the `train_step` and `compile` function of `cavachon.models.Model` and/or `cavachon.modules.components.Component`.
+
+### Unit Test
+1. Use the same directory structure as in `cavachon` in the `test` directory. 
+2. Create a module named `test_${module_name}.py`. For instance: `test_TensorUtils.py`.
+3. Create a class named `${class_name}TestCase`. For instance `TensorUtilsTestCase`.
+4. It's recommended to use `unittest` to implement the unit test.
 
 ## Todos
 * GSEA Analysis

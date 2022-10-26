@@ -8,6 +8,7 @@ from cavachon.modules.base.DecoderDataParameterizer import DecoderDataParameteri
 from cavachon.modules.base.EncoderLatentParameterizer import EncoderLatentParameterizer
 from cavachon.modules.base.HierarchicalEncoder import HierarchicalEncoder
 from cavachon.modules.preprocessors import Preprocessor
+from cavachon.utils.TensorUtils import TensorUtils
 from collections import OrderedDict
 from typing import Any, List, Mapping, Optional, Tuple, Union
 
@@ -35,9 +36,20 @@ class Component(tf.keras.Model):
       distribution names. This is used to automatically find the 
       parameterizer in modules.parameterizers for data distributions.
   
+  encoder: tf.keras.Model
+      encoder neural network.
+
   z_prior_parameterizer: tf.keras.layers.Layer
       parameterizer used for the priors in latent distributions. Used 
       when computing the KLDivergence.
+
+  hierarchical_encoder: tf.karas.Model
+      hierarchical encoder used to encode z_hat hierarchically through 
+      the dependency between components.
+  
+  decoders: Mapping[str, tf.keras.Model]
+      decoder neural networks. The keys are the name of the modality,
+      the values are the corresponding decoder neural network.
       
   name: str, optional
       Name for the tensorflow model. Defaults to 'component'.
@@ -48,9 +60,10 @@ class Component(tf.keras.Model):
     outputs: Mapping[Any, tf.Tensor],
     modality_names: List[Any],
     distribution_names: Mapping[str, str],
+    encoder: tf.keras.Model,
     z_prior_parameterizer: tf.keras.layers.Layer,
     hierarchical_encoder: tf.keras.Model,
-    decoders: tf.keras.Model,
+    decoders: Mapping[str, tf.keras.Model],
     name: str = 'component',
     **kwargs):
     """Constructor for Component. Should not be called directly most of 
@@ -78,9 +91,20 @@ class Component(tf.keras.Model):
         automatically find the parameterizer in modules.parameterizers
         for data distributions.
   
+    encoder: tf.keras.Model
+        encoder neural network.
+
     z_prior_parameterizer: tf.keras.layers.Layer
         parameterizer used for the priors in latent distributions. Used 
         when computing the KLDivergence.
+
+    hierarchical_encoder: tf.karas.Model
+        hierarchical encoder used to encode z_hat hierarchically through 
+        the dependency between components.
+    
+    decoders: Mapping[str, tf.keras.Model]
+        decoder neural networks. The keys are the name of the modality,
+        the values are the corresponding decoder neural network.
 
     name: str, optional:
         Name for the tensorflow model. Defaults to 'component'.
@@ -92,6 +116,7 @@ class Component(tf.keras.Model):
     super().__init__(inputs=inputs, outputs=outputs, name=name)
     self.modality_names = modality_names
     self.distribution_names = distribution_names
+    self.encoder = encoder
     self.z_prior_parameterizer = z_prior_parameterizer
     self.hierarchical_encoder = hierarchical_encoder
     self.decoders = decoders
@@ -500,18 +525,12 @@ class Component(tf.keras.Model):
     preprocessor_inputs.pop(Constants.MODULE_INPUTS_CONDITIONED_Z, None)
     preprocessor_inputs.pop(Constants.MODULE_INPUTS_CONDITIONED_Z_HAT, None)
 
-    batch_effect = list()
     for modality_name in modality_names:
       modality_batch_key = f'{modality_name}/{Constants.TENSOR_NAME_BATCH}'
       preprocessor_inputs.pop(modality_batch_key, None)
-      batch_effect.append(inputs.get(modality_batch_key))
-    batch_effect = tf.concat(batch_effect, axis=-1)
 
     preprocessor_outputs = preprocessor(preprocessor_inputs)
-    encoder_inputs = tf.concat(
-        [preprocessor_outputs.get(preprocessor.matrix_key), batch_effect],
-        axis=-1)
-    z_parameters = encoder(encoder_inputs)
+    z_parameters = encoder(preprocessor_outputs.get(preprocessor.matrix_key))
     z = z_sampler(z_parameters)
 
     hierarchical_encoder_inputs.setdefault(Constants.MODEL_OUTPUTS_Z, z)
@@ -687,6 +706,7 @@ class Component(tf.keras.Model):
         outputs=outputs,
         modality_names=modality_names,
         distribution_names=distribution_names,
+        encoder=encoder,
         z_prior_parameterizer=z_prior_parameterizer,
         hierarchical_encoder=hierarchical_encoder,
         decoders=decoders,
@@ -697,8 +717,8 @@ class Component(tf.keras.Model):
       self,
       **kwargs) -> None:
     """Compile the model before training. Note that the 'metrics' will 
-    be ignored in Component due to some unexpected behaviour for 
-    Tensorflow. The 'loss' will be setup automatically if not provided.
+    be ignored in Model becaus of the incompatibility with Tensorflow
+    API. The 'loss' will be setup automatically if not provided.
 
     Parameters
     ----------
@@ -706,19 +726,23 @@ class Component(tf.keras.Model):
         Additional parameters used to compile the model.
 
     """
+    loss_weights = kwargs.get('loss_weights', dict())
+    kwargs.pop('loss_weights', None)
+    
     if 'loss' not in kwargs:
       loss = OrderedDict()
       kl_divergence_name = Constants.MODEL_LOSS_KL_POSTFIX
       loss.setdefault(
           kl_divergence_name,
-          KLDivergence(name=kl_divergence_name))
+          KLDivergence(loss_weights.get(kl_divergence_name, 1.0), name=kl_divergence_name))
       for modality_name in self.modality_names:
-        negative_log_data_likelihood_name = f'{modality_name}/{Constants.MODEL_LOSS_DATA_POSTFIX}'
+        nldl_name = f'{modality_name}/{Constants.MODEL_LOSS_DATA_POSTFIX}'
         loss.setdefault(
-            negative_log_data_likelihood_name,
+            nldl_name,
             NegativeLogDataLikelihood(
                 self.distribution_names.get(modality_name),
-                name=negative_log_data_likelihood_name))
+                loss_weights.get(nldl_name, 1.0),
+                name=nldl_name))
       kwargs.setdefault('loss', loss)
     else:
       message = ''.join((
@@ -728,9 +752,9 @@ class Component(tf.keras.Model):
 
     if 'metrics' in kwargs:
       message = ''.join((
-        f'Due to the unexpected behaviour with compiled_loss when providing less number ',
-        f'of custom losses in Tensorflow 2.8.0. The custom metrics provided to compile() in',
-        f'{self.__class__.__name__} will be ignored.'))
+        f'Due to the incompatibility of the compiled_loss with Tensorflow 2.8.1 (as the model ',
+        f'requires outputs from multiple components to compute the KLDivergence), The custom ',
+        f'metrics provided to compile() in {self.__class__.__name__} will be ignored.'))
       warnings.warn(message, RuntimeWarning)
       kwargs.pop('metrics')
 
@@ -788,3 +812,47 @@ class Component(tf.keras.Model):
     
     names = ['loss'] + [x.name for x in self.compiled_loss._losses]
     return {name: m.result() for name, m in zip(names, self.metrics)}
+
+  def __setattr__(self, name: str, value: Any) -> None:
+    """Overwrite __setattr__ function, so that everytime setting
+    trainable to False, it automatically set alpha in the 
+    progressive_scaler to 1.0.
+
+    Parameters
+    ----------
+    name: str
+        name of the attributes
+
+    value: Any
+        new value of the attributes.
+
+    """
+    super().__setattr__(name, value)
+    if name == 'trainable':
+      if not value:
+        self.set_progressive_scaler_iteration(1, 1)
+    
+    return
+     
+  def set_progressive_scaler_iteration(
+      self,
+      current_iteration: int = 1,
+      total_iterations: int = 1) -> None:
+    """Set the alpha values (current iteration and total iterations) 
+    for the hierarchical encoder.
+
+    Parameters
+    ----------
+    current_iteration: int, optional
+        current iteration. Defaults to 1.
+
+    total_iterations: int, optional
+        total iteartions, Defaults to 1.
+    """
+    total_iterations = float(total_iterations)
+    current_iteration = float(current_iteration)
+    progressive_scaler = self.hierarchical_encoder.progressive_scaler
+    progressive_scaler.total_iterations.assign(total_iterations)
+    progressive_scaler.current_iteration.assign(current_iteration)
+    
+    return
