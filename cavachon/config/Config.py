@@ -1,5 +1,3 @@
-import os
-
 from cavachon.config.config_mapping.ComponentConfig import ComponentConfig
 from cavachon.config.config_mapping.DatasetConfig import DatasetConfig
 from cavachon.config.config_mapping.FilterConfig import FilterConfig
@@ -10,10 +8,12 @@ from cavachon.config.config_mapping.OptimizerConfig import OptimizerConfig
 from cavachon.config.config_mapping.SampleConfig import SampleConfig
 from cavachon.config.config_mapping.TrainingConfig import TrainingConfig
 from cavachon.environment.Constants import Constants
-from cavachon.io.FileReader import FileReader
 from cavachon.utils.GeneralUtils import GeneralUtils
 from collections import OrderedDict
 from typing import Any, Dict, List, Mapping
+
+import os
+import yaml
 
 class Config:
   """Config
@@ -86,7 +86,8 @@ class Config:
 
     """
     self.filename = os.path.realpath(filename)
-    self.yaml: Dict[str, Any] = FileReader.read_yaml(filename)
+    with open(filename, 'r') as f:
+      self.yaml: Dict[str, Any] = yaml.load(f, Loader=yaml.FullLoader)
 
     # initializations
     self.io: IOConfig = None

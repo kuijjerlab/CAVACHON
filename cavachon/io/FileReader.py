@@ -190,7 +190,8 @@ class FileReader:
 
   @staticmethod
   def read_yaml(filename: str) -> Dict[str, Any]:
-    """Read a given yaml file, and return the content in dictionary.
+    """Read a given yaml file, and return the content in dictionary
+    (Deprecated due to circular imports in Config.py).
 
     Parameters
     ----------
