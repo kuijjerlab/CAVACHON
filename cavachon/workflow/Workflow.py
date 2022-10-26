@@ -107,8 +107,12 @@ class Workflow():
         warnings.warn(message, RuntimeWarning)
         
     if self.config.training.train:
+      if self.config.dataset.get(Constants.CONFIG_FIELD_MODEL_DATASET_SHUFFLE):
+        self.dataloader.dataset.shuffle(self.mdata.n_obs, reshuffle_each_iteration=False).batch(batch_size)
+      else:
+        train_dataset = self.dataloader.dataset.batch(batch_size)
       self.train_history = self.train_scheduler.fit(
-          self.dataloader.dataset.shuffle(self.mdata.n_obs, reshuffle_each_iteration=False).batch(batch_size),
+          train_dataset,
           epochs=max_epochs)
       if self.config.model.save_weights: 
         self.model.save_weights(

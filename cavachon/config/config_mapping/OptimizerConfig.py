@@ -1,4 +1,4 @@
-from cavachon.config.ConfigMapping import ConfigMapping
+from cavachon.config.config_mapping.ConfigMapping import ConfigMapping
 from typing import Any, Mapping
 
 class OptimizerConfig(ConfigMapping):
@@ -15,7 +15,7 @@ class OptimizerConfig(ConfigMapping):
       learning rate of the optimizer.
 
   """
-  def __init__(self, config: Mapping[str, Any]):
+  def __init__(self, **kwargs: Mapping[str, Any]):
     """Constructor for OptimizerConfig. 
 
     Parameters
@@ -24,6 +24,7 @@ class OptimizerConfig(ConfigMapping):
         optimizer config in mapping format.
     
     """
+    # change default values here
     self.name: str
     self.learning_rate: float
-    super().__init__(config)
+    super().__init__(kwargs, ['name', 'learning_rate'])

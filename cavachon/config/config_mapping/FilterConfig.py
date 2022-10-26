@@ -1,4 +1,4 @@
-from cavachon.config.ConfigMapping import ConfigMapping
+from cavachon.config.config_mapping.ConfigMapping import ConfigMapping
 from typing import Any, Mapping
 
 class FilterConfig(ConfigMapping):
@@ -16,7 +16,7 @@ class FilterConfig(ConfigMapping):
   
   """
 
-  def __init__(self, config: Mapping[str, Any]):
+  def __init__(self, **kwargs: Mapping[str, Any]):
     """Constructor for FilterConfig. 
 
     Parameters
@@ -26,4 +26,4 @@ class FilterConfig(ConfigMapping):
 
     """
     self.step: str
-    super().__init__(config)
+    super().__init__(kwargs)

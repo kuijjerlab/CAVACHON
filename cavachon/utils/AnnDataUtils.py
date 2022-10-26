@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from anndata import AnnData
@@ -49,7 +50,7 @@ class AnnDataUtils:
 
     selected_indices = indices.loc[obs_index, 'IntegerIndex'].values
 
-    selected_adata = AnnData(X=matrix[selected_indices])
+    selected_adata = AnnData(X=matrix[selected_indices], dtype=np.float32)
     selected_adata.obs = obs_df.iloc[selected_indices]
     selected_adata.var = var_df
 

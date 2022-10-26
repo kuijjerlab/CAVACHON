@@ -1,4 +1,4 @@
-from cavachon.config.ComponentConfig import ComponentConfig
+from cavachon.config.config_mapping.ComponentConfig import ComponentConfig
 from cavachon.dataloader.DataLoader import DataLoader
 from cavachon.environment.Constants import Constants
 from cavachon.layers.modifiers import ToDense
