@@ -1,5 +1,6 @@
+[![Python 3.8 (Ubuntu-latest)](https://github.com/dn070017/CAVACHON/actions/workflows/unittest.yaml/badge.svg)](https://github.com/dn070017/CAVACHON/actions/workflows/unittest.yaml)
 # CAVACHON (Under Development)
-**C**ell cluster **A**nalysis with **V**ariational **A**utoencoder using **C**onditional **H**ierarchy **Of** latent representio**N** is the Tensorflow implementation of the research "[_Using hierarchical variational autoencoders to incorporate conditional independent priors for paired single-cell multi-omics data integration_ (NeurIPS LMRL Workshop 2022 accepted paper)](https://drive.google.com/file/d/1-WLQ3fQtIffnC2_b64iEw_6to4bcJrfi/view?usp=sharing)" by PH Hsieh, RX Hsiao, T Belova, KT Ferenc, A Mathelier, R Burkholz, CY Chen, GK Sandve, ML Kuijjer.
+**C**ell cluster **A**nalysis with **V**ariational **A**utoencoder using **C**onditional **H**ierarchy **Of** latent representio**N** is the Tensorflow implementation of the research "[_Using hierarchical variational autoencoders to incorporate conditional independent priors for paired single-cell multi-omics data integration_ (NeurIPS LMRL Workshop 2022)](https://drive.google.com/file/d/1-WLQ3fQtIffnC2_b64iEw_6to4bcJrfi/view?usp=sharing)" by PH Hsieh, RX Hsiao, T Belova, KT Ferenc, A Mathelier, R Burkholz, CY Chen, GK Sandve, ML Kuijjer.
 
 ## Installation
 ```batch
@@ -51,18 +52,18 @@ array([[ -3.9341083 , -10.776552  ,  -0.5897913 , ...,  -3.9447799 ,
 ```
 `knn`: summary table for the k-nearest neighbor analysis.
 ```
-        % of KNN Cells with the Same Cluster  Number of Neighbors      Cluster
-0                                   1.000000                    5  Cluster 002
-1                                   1.000000                    5  Cluster 010
-2                                   0.400000                    5  Cluster 010
-3                                   0.400000                    5  Cluster 010
-4                                   1.000000                    5  Cluster 002
-...                                      ...                  ...          ...
-206175                              1.000000                   24  Cluster 008
-206176                              0.958333                   24  Cluster 009
-206177                              0.833333                   24  Cluster 007
-206178                              0.500000                   24  Cluster 010
-206179                              0.458333                   24  Cluster 006
+        Number of Neighbors  Cluster  % of KNN Cells with the Same Cluster
+0                         5    L5 CT                              0.400000
+1                         5    L6 IT                              0.600000
+2                         5    L6 IT                              0.400000
+3                         5       L4                              0.200000
+4                         5       L4                              0.400000
+...                     ...      ...                                   ...
+206175                   24  L2/3 IT                              0.250000
+206176                   24  L2/3 IT                              0.250000
+206177                   24       L4                              0.041667
+206178                   24    L5 CT                              0.083333
+206179                   24    L5 PT                              0.000000
 
 [206180 rows x 3 columns]
 ```
@@ -122,7 +123,7 @@ from cavachon.tools import InteractiveVisualization
 
 InteractiveVisualization.neighbors_with_same_annotations(mdata=workflow.mdata, 
     model=workflow.model, modality='RNA_Modality', use_cluster='cluster_RNA', use_rep='z_RNA', 
-    n_neighbors_sequence=[5], group_by_cluster=True, width=800, height=720, 
+    n_neighbors=5, group_by_cluster=True, width=800, height=720, 
     filename='nearest_neighbors_rna.png')
 ```
 ![nearest_neighbors_rna](./assets/nearest_neighbors_rna.png)

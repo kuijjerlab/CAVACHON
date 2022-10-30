@@ -2,13 +2,14 @@ from cavachon.dataloader.DataLoader import DataLoader
 from cavachon.distributions.MultivariateNormalDiag import MultivariateNormalDiag
 from cavachon.distributions.MixtureMultivariateNormalDiag import MixtureMultivariateNormalDiag
 from tqdm import tqdm
-from typing import Sequence
+from typing import Sequence, Union
 
 import muon as mu
 import numpy as np
 import pandas as pd
 import scanpy
 import tensorflow as tf
+import warnings
 
 class ClusterAnalysis:
   """ClusterAnalysis
@@ -95,8 +96,8 @@ class ClusterAnalysis:
       self,
       modality: str,
       use_cluster: str,
-      use_rep: str,
-      n_neighbors_sequence: Sequence[int] = list(range(5, 25))) -> pd.DataFrame:
+      use_rep: Union[str, np.array],
+      n_neighbors: Union[int, Sequence[int]] = list(range(5, 25))) -> pd.DataFrame:
     """Perform K-nearest neighbor analysis.
 
     Parameters
@@ -107,11 +108,12 @@ class ClusterAnalysis:
     use_cluster: str
         the column name of the clusters in the obs of modality.
     
-    use_rep: str
+    use_rep: Union[str, np.array]
         the key of obsm of modality to used to compute the distance 
-        within and between clusters
+        within and between clusters. Alternatively, the array will be 
+        used if provided with np.array,
     
-    n_neighbors_sequence: Sequence[int], optional
+    n_neighbors: Union[int, Sequence[int]], optional
         the number of neighbors to be analyzed, Defaults to 
         list(range(5, 25))
 
@@ -119,9 +121,9 @@ class ClusterAnalysis:
     -------
     pd.DataFrame
         analysis result for K-nearest neighbor. The DataFrame contains
-        3 columns, the first column specify the proportion of KNN 
-        samples with the same cluster, the second is the number of 
-        neighbors (K), the third column is the cluster identifiers.
+        3 columns, the first column is the number of neighbors (K), the 
+        second column is the cluster identifiers, the third column 
+        specify the proportion of KNN samples with the same cluster, 
 
     Raises
     ------
@@ -134,23 +136,35 @@ class ClusterAnalysis:
       message = f'{use_cluster} not in obs DataFrame of the modality.'
       raise KeyError(message)
     
-    proportions = list()
-    clusters = list()
-    n_neighbors = list()
-    for k in tqdm(n_neighbors_sequence):
+    proportions_series = list()
+    clusters_series = list()
+    n_neighbors_series = list()
+    if isinstance(n_neighbors, (int, float)):
+      n_neighbors = [n_neighbors]
+
+    if isinstance(use_rep, np.ndarray):
+      self.mdata[modality].obsm['z_custom'] = use_rep
+      use_rep = 'z_custom'
+
+    for k in tqdm(n_neighbors):
+      if isinstance(k, float):
+        k = int(k)
+        message = 'Expect int for element in n_neighbors, transform float to int.'
+        warnings.warn(message, RuntimeWarning)
+
       scanpy.pp.neighbors(self.mdata[modality], n_neighbors=k + 1, use_rep=use_rep)
       proportions_k = list()
       for i, j in enumerate(self.mdata[modality].obsp['distances']):
         cluster = self.mdata[modality].obs.iloc[i][use_cluster]
         neighbor_clusters = self.mdata[modality].obs.iloc[j.indices][use_cluster]
         proportions_k.append((neighbor_clusters == cluster).sum()/ k)
-        clusters += [cluster]
+        clusters_series += [cluster]
       
-      proportions.append(np.array(proportions_k))
-      n_neighbors.append(np.array([k] * len(proportions_k)))
+      proportions_series.append(np.array(proportions_k))
+      n_neighbors_series.append(np.array([k] * len(proportions_k)))
 
-    return pd.DataFrame({
-        '% of KNN Cells with the Same Cluster': np.concatenate(proportions), 
-        'Number of Neighbors': np.concatenate(n_neighbors),
-        'Cluster': clusters})
+    return pd.DataFrame({ 
+        'Number of Neighbors': np.concatenate(n_neighbors_series),
+        'Cluster': clusters_series,
+        '% of KNN Cells with the Same Cluster': np.concatenate(proportions_series)})
       

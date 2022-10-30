@@ -4,12 +4,12 @@ from sklearn.manifold import TSNE
 from typing import Optional, Union, Sequence
 
 import anndata
+import numpy as np
 import muon as mu
 import pandas as pd
 import plotly
 import plotly.express as px
 import plotly.graph_objects as go
-import scanpy
 import tensorflow as tf
 import umap
 import warnings
@@ -105,10 +105,11 @@ class InteractiveVisualization:
       adata: anndata.AnnData,
       method: str = 'tsne',
       filename: Optional[str] = None,
-      use_rep: str = 'z',
+      use_rep: Union[str, np.array] = 'z',
       color: Union[str, Sequence[str], None] = None,
       title: Optional[str] = None,
       color_discrete_sequence: Optional[Sequence[str]] = None,
+      force: bool = False,
       *args,
       **kwargs):
     """Create interactive visualization for the latent space.
@@ -126,9 +127,10 @@ class InteractiveVisualization:
         filename to save the figure. None if disable saving. Defaults 
         to None.
     
-    use_rep: str, optional
+    use_rep: Union[str, np.array], optional
         which representation to used for the latent space. Defaults to 
-        'z'.
+        'z'. Alternatively, the array will be used if provided with 
+        np.array,
     
     color: Union[str, Sequence[str], None], optional
         column names in the adata.obs that used to color code the 
@@ -145,6 +147,9 @@ class InteractiveVisualization:
         overwrite the color code from `color`. The color code defined
         from `color` argument will be used if provided with none. 
         Defaults to None
+    
+    force: bool, optional
+        force to rerun the embedding. Defaults to False.
     
     *args: Optional[Sequence[Any]], optional
         additional positional arguments for px.scatter.
@@ -166,7 +171,6 @@ class InteractiveVisualization:
       method = 'tsne'
      
     if color is not None:
-
       if color in adata.obs:
         color = adata.obs[color]
       else:
@@ -185,19 +189,36 @@ class InteractiveVisualization:
     if color is None:
       if color_discrete_sequence is None:
         color_discrete_sequence = ['salmon'] * adata.n_obs
-
-    obsm_key = f'{use_rep}_{method}'
-    if obsm_key not in adata.obsm.keys():
+    
+    if isinstance(use_rep, np.ndarray):
+      matrix = use_rep
+    else:
+      matrix = adata.obsm[use_rep]
+    
+    # np.ndarray has __str__ implemented. It also works if use_rep is a
+    # np.ndarray
+    obsm_key = f'{use_rep}_{method}'  
+    if force or obsm_key not in adata.obsm.keys():
       if method == 'pca':
         model = PCA(n_components=2, random_state=0)
-        adata.obsm[obsm_key] = model.fit_transform(adata.obsm[use_rep])
+        transformed_matrix = model.fit_transform(matrix)
       if method == 'tsne':
         model = TSNE(random_state=0)
-        adata.obsm[obsm_key] = model.fit_transform(adata.obsm[use_rep])
+        transformed_matrix = model.fit_transform(matrix)
       if method == 'umap':
         model = umap.UMAP(random_state=0)
-        adata.obsm[obsm_key] = model.fit_transform(adata.obsm[use_rep])
-    
+        transformed_matrix = model.fit_transform(matrix)
+      
+      if isinstance(use_rep, str):
+        adata.obsm[obsm_key] = transformed_matrix
+
+    # in case the embedding is not called again.
+    if isinstance(use_rep, str):
+      transformed_matrix = adata.obsm[obsm_key]
+
+    x = transformed_matrix[:, 0]
+    y = transformed_matrix[:, 1]
+
     if method == 'pca':
       labels = {'x': 'PCA 1', 'y': 'PCA 2'}
     if method == 'tsne':
@@ -205,8 +226,6 @@ class InteractiveVisualization:
     if method == 'umap':
       labels = {'x': 'Umap 1', 'y': 'Umap 2'}
 
-    x = adata.obsm[obsm_key][:, 0]
-    y = adata.obsm[obsm_key][:, 1]
     fig = InteractiveVisualization.scatter(
         x=x,
         y=y,
@@ -229,8 +248,8 @@ class InteractiveVisualization:
       model: tf.keras.Model,
       modality: str,
       use_cluster: str,
-      use_rep: str,
-      n_neighbors_sequence: Sequence[int] = list(range(5, 25)),
+      use_rep: Union[str, np.array],
+      n_neighbors: Sequence[int] = list(range(5, 25)),
       filename: Optional[str] = None,
       group_by_cluster: bool = False,
       title: str = 'Cluster Nearest Neighbor Analysis',
@@ -251,11 +270,12 @@ class InteractiveVisualization:
     use_cluster: str
         the column name of the clusters in the obs of modality.
     
-    use_rep: str
+    use_rep: Union[str, np.array]
         the key of obsm of modality to used to compute the distance 
-        within and between clusters
+        within and between clusters. Alternatively, the array will be 
+        used if provided with np.array,
     
-    n_neighbors_sequence: Sequence[int], optional
+    n_neighbors: Union[int, Sequence[int]], optional
         the number of neighbors to be analyzed, Defaults to 
         list(range(5, 25))
     
@@ -278,7 +298,7 @@ class InteractiveVisualization:
         modality=modality, 
         use_cluster=use_cluster,
         use_rep=use_rep,
-        n_neighbors_sequence=n_neighbors_sequence)
+        n_neighbors=n_neighbors)
     
     if group_by_cluster:
       group = 'Cluster'
