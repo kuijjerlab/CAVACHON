@@ -232,3 +232,27 @@ class TensorUtils:
     indices = np.mat([coo_matrix.row, coo_matrix.col]).transpose()
     sparse_tensor = tf.SparseTensor(indices, coo_matrix.data, coo_matrix.shape)
     return tf.sparse.reorder(tf.cast(sparse_tensor, tf.float32))
+  
+  @staticmethod
+  def split(x: tf.Tensor, batch_size: int = 128) -> List[tf.Tensor]:
+    """Split the tensor on the first dimension (batch), with batch_size.
+
+    Parameters
+    ----------
+    x: tf.Tensor
+        input tensor.
+
+    batch_size: int, optional
+        the batch size to split. Defaults to 128
+
+    Returns
+    -------
+    List[tf.Tensor]
+        List of splitted tensors.
+    """
+    n_obs = x.shape[0]
+    # if batch_size = 128, n_obs = 1000
+    # split_batch = [128, 128, 128, 128, 128, 128, 128, 104]
+    split_batch = [batch_size] * (n_obs // batch_size) + [n_obs % batch_size]
+    
+    return tf.split(x, split_batch)
