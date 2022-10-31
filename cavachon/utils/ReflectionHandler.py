@@ -42,9 +42,9 @@ class ReflectionHandler:
     pattern = f"*{class_name}.py" if partial else f"{class_name}.py"
     result = []
     for depth in range(max_depth):
-      filename = f'cavachon/{subdirectory}' + '**/' * (depth + 1) + pattern
+      filename = f'{Settings.src_path}/{subdirectory}' + '**/' * (depth + 1) + pattern
       if len(glob.glob(filename)) != 0:
-        result.append(Path(os.path.join(Settings.root_path, glob.glob(filename)[0])))
+        result.append(Path(os.path.join(Settings.src_path, glob.glob(filename)[0])))
         break
     return result
 
