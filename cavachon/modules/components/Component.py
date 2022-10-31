@@ -36,6 +36,9 @@ class Component(tf.keras.Model):
       distribution names. This is used to automatically find the 
       parameterizer in modules.parameterizers for data distributions.
   
+  preprocessor: tf.keras.Model
+      preprocessor for the input data.
+
   encoder: tf.keras.Model
       encoder neural network.
 
@@ -60,10 +63,13 @@ class Component(tf.keras.Model):
     outputs: Mapping[Any, tf.Tensor],
     modality_names: List[Any],
     distribution_names: Mapping[str, str],
+    preprocessor: tf.keras.Model,
     encoder: tf.keras.Model,
     z_prior_parameterizer: tf.keras.layers.Layer,
     hierarchical_encoder: tf.keras.Model,
     decoders: Mapping[str, tf.keras.Model],
+    conditioned_on_z: List[str] = [],
+    conditioned_on_z_hat: List[str] = [],
     name: str = 'component',
     **kwargs):
     """Constructor for Component. Should not be called directly most of 
@@ -90,7 +96,10 @@ class Component(tf.keras.Model):
         names of the distributions for each modality, this is used to 
         automatically find the parameterizer in modules.parameterizers
         for data distributions.
-  
+    
+    preprocessor: tf.keras.Model
+      preprocessor for the input data.
+
     encoder: tf.keras.Model
         encoder neural network.
 
@@ -105,6 +114,20 @@ class Component(tf.keras.Model):
     decoders: Mapping[str, tf.keras.Model]
         decoder neural networks. The keys are the name of the modality,
         the values are the corresponding decoder neural network.
+    
+    conditioend_on_z: str, optional
+       The current component will be conditionally independent with the
+       specified components on the latent representation of the later 
+       one (exclude its ancestors). Note that the conditional 
+       independent relationships between components needs to be a 
+       directed acyclic graph. Defaults to [].
+
+    conditioend_on_z_hat: str, optional
+       The current component will be conditionally independent with the
+       specified components on the latent representation of the later 
+       one (include its ancestors). Note that the conditional 
+       independent relationships between components needs to be a 
+       directed acyclic graph. Defaults to [].
 
     name: str, optional:
         Name for the tensorflow model. Defaults to 'component'.
@@ -115,11 +138,14 @@ class Component(tf.keras.Model):
     """
     super().__init__(inputs=inputs, outputs=outputs, name=name)
     self.modality_names = modality_names
+    self.preprocessor = preprocessor
     self.distribution_names = distribution_names
     self.encoder = encoder
     self.z_prior_parameterizer = z_prior_parameterizer
     self.hierarchical_encoder = hierarchical_encoder
     self.decoders = decoders
+    self.conditioned_on_z = conditioned_on_z
+    self.conditioned_on_z_hat = conditioned_on_z_hat
 
   @classmethod
   def setup_inputs(
@@ -575,6 +601,8 @@ class Component(tf.keras.Model):
       n_decoder_layers: Union[int, Mapping[str, int]] = 3,
       z_conditional_dims: Optional[int] = None,
       z_hat_conditional_dims: Optional[int] = None,
+      conditioned_on_z: List[str] = [],
+      conditioned_on_z_hat: List[str] = [],
       progressive_iterations: int = 5000,
       name: str = 'component',
       **kwargs) -> tf.keras.Model:
@@ -627,6 +655,20 @@ class Component(tf.keras.Model):
         dimension of z_hat from the components of the dependency. None 
         if the component does not depends on any other components. 
         Defaults to None.
+    
+    conditioned_on_z: str, optional
+       The current component will be conditionally independent with the
+       specified components on the latent representation of the later 
+       one (exclude its ancestors). Note that the conditional 
+       independent relationships between components needs to be a 
+       directed acyclic graph. Defaults to [].
+
+    conditioned_on_z_hat: str, optional
+       The current component will be conditionally independent with the
+       specified components on the latent representation of the later 
+       one (include its ancestors). Note that the conditional 
+       independent relationships between components needs to be a 
+       directed acyclic graph. Defaults to [].
 
     prorgressive_iterations: int, optional
         total iterations for progressive training. Defaults to 5000.
@@ -702,15 +744,18 @@ class Component(tf.keras.Model):
         **kwargs)
 
     return cls(
-        inputs=inputs,
-        outputs=outputs,
-        modality_names=modality_names,
-        distribution_names=distribution_names,
-        encoder=encoder,
-        z_prior_parameterizer=z_prior_parameterizer,
-        hierarchical_encoder=hierarchical_encoder,
-        decoders=decoders,
-        name=name,
+        inputs = inputs,
+        outputs = outputs,
+        modality_names = modality_names,
+        distribution_names = distribution_names,
+        preprocessor = preprocessor,
+        encoder = encoder,
+        z_prior_parameterizer = z_prior_parameterizer,
+        hierarchical_encoder = hierarchical_encoder,
+        decoders = decoders,
+        conditioned_on_z = conditioned_on_z,
+        conditioned_on_z_hat = conditioned_on_z_hat,
+        name = name,
         **kwargs)
 
   def compile(
