@@ -226,7 +226,7 @@ class SequentialTrainingScheduler:
         element is the maximum number of progressive epochs.
     """
     loss_weights = dict()
-    max_n_progressive_epochs = 0
+    max_n_progressive_epochs = 1
     for component_config in self.component_configs:
       component_name = component_config.get('name')
       component = self.model.components.get(component_name)
