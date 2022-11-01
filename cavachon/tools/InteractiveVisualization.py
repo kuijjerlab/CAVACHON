@@ -107,6 +107,7 @@ class InteractiveVisualization:
     -------
     plotly.graph_objs._figure.Figure
         interactive figure objects.
+
     """
     fig = px.scatter(*args, **kwargs)
     fig.update_traces(
@@ -172,6 +173,12 @@ class InteractiveVisualization:
 
     **kwargs: Optional[Mapping[str, Any]], optional
         additional arguments for px.scatter.
+    
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+
     """
 
     adata_name = adata.uns.get('cavachon', '').get('name', '')
@@ -257,6 +264,8 @@ class InteractiveVisualization:
         fig.write_html(filename)
       else:
         fig.write_image(filename)
+    
+    return fig
 
   @staticmethod
   def neighbors_with_same_annotations(
@@ -312,6 +321,12 @@ class InteractiveVisualization:
     
     **kwargs: Optional[Mapping[str, Any]], optional
         additional arguments for fig.update_layout.
+    
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+
     """
     analysis = ClusterAnalysis(mdata, model)
     analysis_result = analysis.compute_neighbors_with_same_annotations(
@@ -342,6 +357,8 @@ class InteractiveVisualization:
         fig.write_html(filename)
       else:
         fig.write_image(filename)
+    
+    return fig
   
   @staticmethod
   def attribution_score(
@@ -397,6 +414,12 @@ class InteractiveVisualization:
     
     **kwargs: Optional[Mapping[str, Any]], optional
         additional arguments for fig.update_layout.
+    
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+
     """
 
     analysis = AttributionAnalysis(mdata, model)
@@ -430,3 +453,5 @@ class InteractiveVisualization:
         fig.write_html(filename)
       else:
         fig.write_image(filename)
+    
+    return fig
