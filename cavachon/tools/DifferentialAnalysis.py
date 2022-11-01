@@ -148,6 +148,7 @@ class DifferentialAnalysis:
       dataset: tf.data.Dataset,
       component: str,
       modality: str,
+      training: bool = True,
       batch_size: int = 128) -> np.ndarray:
     """Compute the means of generative data.
 
@@ -162,6 +163,11 @@ class DifferentialAnalysis:
     modality : str
         which modality to used from the generative result of 
         `component`.
+    
+    training: bool
+        if True, the forward pass will perform sampling with 
+        reparameterization. Otherwise, the mean value of the latent
+        distribution is used. Defaults to True.
 
     batch_size: int, optional
         batch size used for the forward pass. Defaults to 128
@@ -178,7 +184,7 @@ class DifferentialAnalysis:
     dist_x_z_class = ReflectionHandler.get_class_by_name(dist_x_z_name, 'distributions')
     x_means = []
     for batch in dataset.batch(batch_size):
-      result = self.model(batch, training=True)
+      result = self.model(batch, training=training)
       x_parameters = result.get(
           f"{component}/{modality}/{Constants.MODEL_OUTPUTS_X_PARAMS}")
       dist_x_z = dist_x_z_class.from_parameterizer_output(x_parameters)
@@ -209,10 +215,13 @@ class DifferentialAnalysis:
     -------
     pd.DataFrame
         analysis result for differential analysis. The DataFrame 
-        contains 4 columns, the first column specify the probability
-        P(A>B|Z), the second column specify the probability P(B>A|Z),
-        the third column specify the Bayesian factor of K(A>B|Z), the
-        fourth column specify the Bayesian factor of K(B>A|Z).
+        contains 6 columns:
+        1. expected values of groups A
+        2. expected values of groups B
+        3. the probability P(A>B|Z)
+        4. the probability P(B>A|Z),
+        5. the Bayesian factor of K(A>B|Z)
+        6. the Bayesian factor of K(B>A|Z).
         
     """
     p_a_gt_b = np.mean(x_means_a > x_means_b, 0)
@@ -223,6 +232,8 @@ class DifferentialAnalysis:
     bayesian_factor_b_gt_a = np.log(p_b_gt_a + 1e-7) - np.log(p_b_leq_a + 1e-7)
 
     return pd.DataFrame({
+      'Mean(A)': np.mean(x_means_a, axis=0),
+      'Mean(B)': np.mean(x_means_b, axis=0),
       'P(A>B|Z)': p_a_gt_b,
       'P(B>A|Z)': p_b_gt_a,
       'K(A>B|Z)': bayesian_factor_a_gt_b,
