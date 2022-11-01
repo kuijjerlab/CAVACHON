@@ -1,7 +1,7 @@
 from cavachon.tools.ClusterAnalysis import ClusterAnalysis
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from typing import Optional, Union, Sequence
+from typing import Optional, Mapping, Union, Sequence
 
 import anndata
 import numpy as np
@@ -24,6 +24,7 @@ class InteractiveVisualization:
       x: str,
       y: str,
       group: Optional[str] = None,
+      color_discrete_map: Mapping[str, str] = dict(),
       **kwargs) -> plotly.graph_objs._figure.Figure:
     """Create interactive barplot.
 
@@ -58,10 +59,23 @@ class InteractiveVisualization:
         data_subset = data.loc[data[group] == subset]
         means = data_subset.groupby(x).mean()[y]
         sem = data_subset.groupby(x).sem()[y]
-        fig.add_trace(go.Bar(
-            name=subset,
-            x=means.index, y=means,
-            error_y=dict(type='data', array=sem)))
+        if color_discrete_map.get(subset, None):
+          fig.add_trace(go.Bar(
+              name=subset,
+              x=means.index, 
+              y=means, 
+              marker_opacity=0.7,
+              marker_line=dict(width=1, color='DarkSlateGrey'),
+              marker_color=color_discrete_map.get(subset),
+              error_y=dict(type='data', array=sem)))
+        else:
+            fig.add_trace(go.Bar(
+              name=subset,
+              x=means.index, 
+              y=means,
+              marker_opacity=0.7,
+              marker_line=dict(width=1, color='DarkSlateGrey'),
+              error_y=dict(type='data', array=sem)))
       fig.update_layout(barmode='group', **kwargs)
     else:
       means = data.groupby(x).mean()[y]
@@ -70,8 +84,9 @@ class InteractiveVisualization:
       fig.add_trace(go.Bar(
           name='Control',
           x=means.index, y=means,
+          marker_opacity=0.7,
+          marker_line=dict(width=1, color='DarkSlateGrey'),
           error_y=dict(type='data', array=sem)))
-      fig.update_layout(**kwargs)
     
     return fig
 
@@ -97,7 +112,7 @@ class InteractiveVisualization:
     fig.update_traces(
         marker=dict(
             opacity=0.7, 
-            line=dict(width=1, color='DarkSlateGrey')))
+            line=dict(width=1, color='DarkSlateGrey')))    
     return fig
 
   @staticmethod
@@ -145,8 +160,9 @@ class InteractiveVisualization:
     color_discrete_sequence: Optional[Sequence[str]], optional
         the discrete color set individually for each sample. This will
         overwrite the color code from `color`. The color code defined
-        from `color` argument will be used if provided with none. 
-        Defaults to None
+        from `color` argument will be used if provided with none. To 
+        change the color palette for `color`, use `color_discrete_map`
+        instead. Defaults to None.
     
     force: bool, optional
         force to rerun the embedding. Defaults to False.
@@ -157,7 +173,7 @@ class InteractiveVisualization:
     **kwargs: Optional[Mapping[str, Any]], optional
         additional arguments for px.scatter.
     """
-    
+
     adata_name = adata.uns.get('cavachon', '').get('name', '')
     if title is None:
       title = f'Z({adata_name})'
@@ -252,6 +268,7 @@ class InteractiveVisualization:
       n_neighbors: Sequence[int] = list(range(5, 25)),
       filename: Optional[str] = None,
       group_by_cluster: bool = False,
+      color_discrete_map: Mapping[str, str] = dict(),
       title: str = 'Cluster Nearest Neighbor Analysis',
       **kwargs):
     """Create interactive visualization for nearest neighbor analysis.
@@ -286,6 +303,9 @@ class InteractiveVisualization:
     group_by_cluster: bool, optional
         whether or not to group by the clusters. Defaults to False
     
+    color_discrete_map: Mapping[str, str], optional
+        the color palette for `group_by_cluster`. Defaults to dict()
+
     title: str, optional
         title for the figure. Defaults to 'Cluster Nearest Neighbor
         Analysis'
@@ -311,6 +331,7 @@ class InteractiveVisualization:
         y='% of KNN Cells with the Same Cluster',
         group=group,
         title=title,
+        color_discrete_map=color_discrete_map,
         xaxis_title='Number of Neighbors',
         yaxis_title='% of KNN Cells with the Same Cluster',
         **kwargs)
