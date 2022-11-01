@@ -87,7 +87,7 @@ class InteractiveVisualization:
           marker_opacity=0.7,
           marker_line=dict(width=1, color='DarkSlateGrey'),
           error_y=dict(type='data', array=sem)))
-    
+
     return fig
 
   @staticmethod
@@ -335,6 +335,94 @@ class InteractiveVisualization:
         xaxis_title='Number of Neighbors',
         yaxis_title='% of KNN Cells with the Same Cluster',
         **kwargs)
+    fig.show()
+
+    if filename:
+      if filename.endswith('html'):
+        fig.write_html(filename)
+      else:
+        fig.write_image(filename)
+  
+  @staticmethod
+  def attribution_score(
+      mdata: mu.MuData,
+      model: tf.keras.Model,
+      component: str,
+      modality: str,
+      target_component: str,
+      use_cluster: str,
+      steps: int = 10,
+      batch_size: int = 128,
+      color_discrete_map: Mapping[str, str] = dict(),
+      filename: Optional[str] = None,
+      title: str = 'Attribution Score Analysis',
+      **kwargs):
+    """Create interactive visualization for attribution score.
+
+    Parameters
+    ----------
+    mdata: mu.MuData
+        the MuData used for the generative process.
+    
+    model: tf.keras.Model
+        the trained generative model used for the generative process.
+
+    component: str
+        the outputs of which component to used.
+
+    modality: str
+        which modality of the outputs of the component to used.
+
+    target_component: str
+        the latent representation of which component to used.
+
+    use_cluster: str
+        the column name of the clusters in the obs of modality.
+
+    steps: int, optional
+        steps in integrated gradients. Defaults to 10.
+
+    batch_size: int, optional
+        batch size used for the forward pass. Defaults to 128.
+
+    color_discrete_map: Mapping[str, str], optional
+        the color palette for `group_by_cluster`. Defaults to dict()
+
+    filename: Optional[str], optional
+        filename to save the figure. None if disable saving. Defaults 
+        to None.
+
+    title: str, optional
+        title for the figure. Defaults to 'Attribution Score Analysis'
+    
+    **kwargs: Optional[Mapping[str, Any]], optional
+        additional arguments for fig.update_layout.
+    """
+
+    analysis = AttributionAnalysis(mdata, model)
+    attribution_score = analysis.compute_integrated_gradient(
+        component=component,
+        modality=modality,
+        target_component=target_component,
+        steps=steps,
+        batch_size=batch_size)
+
+    data = pd.DataFrame({
+        'X': np.ones(workflow.mdata[modality].n_obs),
+        'Cluster': workflow.mdata[modality].obs[use_cluster], 
+        'Attribution Score': np.mean(np.abs(attribution_score), axis=-1)})
+
+    fig = InteractiveVisualization.bar(
+        data, 
+        x='X', 
+        y='Attribution Score',
+        group='Cluster',
+        title=title,
+        color_discrete_map=color_discrete_map,
+        xaxis_title='Cluster',
+        yaxis_title='Attribution Score',
+        **kwargs)
+    fig.update_layout(xaxis_showticklabels=False)
     fig.show()
 
     if filename:
