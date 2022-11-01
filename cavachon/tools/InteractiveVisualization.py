@@ -91,7 +91,7 @@ class InteractiveVisualization:
     return fig
 
   @staticmethod
-  def scatter(*args, **kwargs):
+  def scatter(*args, **kwargs) -> plotly.graph_objs._figure.Figure:
     """Create interactive scatter plot.
    
     Parameters
@@ -127,7 +127,7 @@ class InteractiveVisualization:
       color_discrete_sequence: Optional[Sequence[str]] = None,
       force: bool = False,
       *args,
-      **kwargs):
+      **kwargs) -> plotly.graph_objs._figure.Figure:
     """Create interactive visualization for the latent space.
 
     Parameters
@@ -279,7 +279,7 @@ class InteractiveVisualization:
       group_by_cluster: bool = False,
       color_discrete_map: Mapping[str, str] = dict(),
       title: str = 'Cluster Nearest Neighbor Analysis',
-      **kwargs):
+      **kwargs) -> plotly.graph_objs._figure.Figure:
     """Create interactive visualization for nearest neighbor analysis.
 
     Parameters
@@ -373,7 +373,7 @@ class InteractiveVisualization:
       color_discrete_map: Mapping[str, str] = dict(),
       filename: Optional[str] = None,
       title: str = 'Attribution Score Analysis',
-      **kwargs):
+      **kwargs) -> plotly.graph_objs._figure.Figure:
     """Create interactive visualization for attribution score.
 
     Parameters
@@ -446,6 +446,95 @@ class InteractiveVisualization:
         yaxis_title='Attribution Score',
         **kwargs)
     fig.update_layout(xaxis_showticklabels=False)
+    fig.show()
+
+    if filename:
+      if filename.endswith('html'):
+        fig.write_html(filename)
+      else:
+        fig.write_image(filename)
+    
+    return fig
+  
+  @staticmethod
+  def differential_volcano_plot(
+      mdata: mu.MuData,
+      model: tf.keras.Model,
+      group_a_index: Union[pd.Index, Sequence[str]],
+      group_b_index: Union[pd.Index, Sequence[str]],
+      component: str,
+      modality: str,
+      significant_threshold: float = 3.2,
+      filename: Optional[str] = None,
+      title: str = 'Volcano Plot for Differential Analysis',
+      **kwargs) -> plotly.graph_objs._figure.Figure:
+    """Create interactive visualization for volcano plot for 
+    differential analysis
+
+    Parameters
+    ----------
+    mdata: mu.MuData
+        the MuData used for the generative process.
+    
+    model: tf.keras.Model
+        the trained generative model used for the generative process.
+
+    group_a_index : Union[pd.Index, Sequence[str]]
+        index of group one. Needs to meet the index in the obs of the
+        modality.
+    
+    group_b_index : Union[pd.Index, Sequence[str]]
+        index of group two. Needs to meet the index in the obs of the
+        modality.
+    
+    component : str
+        generative result of `modality` from which component to used.
+    
+    modality : str
+        which modality to used from the generative result of 
+        `component`.
+
+    significant_threshold : float, optional
+        threshold for significance of Bayesian factor. Defaults to 3.2.
+    
+    filename: Optional[str], optional
+        filename to save the figure. None if disable saving. Defaults 
+        to None.
+
+    title: str, optional
+        title for the figure. Defaults to 'Attribution Score Analysis'
+    
+    **kwargs: Optional[Mapping[str, Any]], optional
+        additional arguments for fig.update_layout.
+    
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+
+    """
+    obs = mdata[modality].obs
+    analysis = DifferentialAnalysis(mdata=workflow.mdata, model=workflow.model)
+    degs = analysis.between_two_groups(
+        group_a_index=group_a_index,
+        group_b_index=group_b_index, 
+        component=component,
+        modality=modality)
+        
+    degs['LogFC(A/B)'] = np.log(degs['Mean(A)']/degs['Mean(B)'])
+    degs['K(A!=B|Z)'] = degs[['K(A>B|Z)', 'K(B>A|Z)']].abs().max(axis=1)
+    degs['Significant'] = degs['K(A!=B|Z)'].apply(lambda x: 'Significant' if x > 3.2 else 'Non-significant')
+    degs['Target'] = degs.index
+    fig = InteractiveVisualization.scatter(
+        degs,
+        x='LogFC(A/B)',
+        y='K(A!=B|Z)',
+        color='Significant', 
+        labels={'x': 'LogFC(A/B)', 'y': 'K(A!=B|Z)'},
+        hover_data=['Target'],
+        title=title,
+        **kwargs)
+    
     fig.show()
 
     if filename:
