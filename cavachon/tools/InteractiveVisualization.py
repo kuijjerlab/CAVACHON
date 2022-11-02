@@ -1,5 +1,6 @@
 from cavachon.tools.ClusterAnalysis import ClusterAnalysis
 from gseapy.gsea import Prerank
+from plotly.subplots import make_subplots
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from typing import Optional, Mapping, Union, Sequence
@@ -621,6 +622,186 @@ class InteractiveVisualization:
     
     fig.show()
 
+    if filename:
+      if filename.endswith('html'):
+        fig.write_html(filename)
+      else:
+        fig.write_image(filename)
+    
+    return fig
+
+  @staticmethod
+  def prerank_enrichment_score(
+      prerank_result: Prerank,
+      term: str,
+      filename: Optional[str] = None) -> plotly.graph_objs._figure.Figure:
+    """Create interactive visualization for enrichment score for the
+    provided term.
+
+    Parameters
+    ----------
+    prerank_result: Prerank
+        outputs of gseapy.prerank.
+
+    term: str
+        the term to used.
+
+    filename: Optional[str], optional
+        filename to save the figure. None if disable saving. Defaults 
+        to None.
+
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+
+
+    """
+    term_result = prerank_result.results[term]
+    rank_metric = prerank_result.ranking
+
+    indices = np.arange(len(rank_metric))
+    RES = np.asarray(term_result.get('RES'))
+    zero_score_index = np.abs(rankings).argmin()
+    hit_indices = np.array(term_result.get('hits'))
+
+    z_score_label = f"Zero score at {zero_score_index}"
+    nes_label = f"NES: {float(term_result.get('nes')):.3f}"
+    pval_label = f"Pval: {float(term_result.get('pval')):.3e}"
+    fdr_label = f"FDR: {float(term_result.get('fdr')):.3e}"
+
+    data = pd.DataFrame({
+        'Rank in Ordered Dataset': indices,
+        'Rank List Metric': rank_metric,
+        'Enrichment Score': RES,
+        'color': rank_metric > 0,
+        'Target': rank_metric.index})
+
+    fig = make_subplots(
+        rows=4,
+        cols=1,
+        row_heights=[0.45, 0.05, 0.05, 0.45],
+        vertical_spacing=0.00)
+
+    hover_template = ''.join((
+        'Target: %{text}<br>Rank in Ordered Dataset: %{x}'
+        '<br>Enrichment Score: %{y:.2f}'))
+    fig.add_trace(
+        go.Scatter(
+            x=data.loc[indices < zero_score_index]['Rank in Ordered Dataset'],
+            y=data.loc[indices < zero_score_index]['Enrichment Score'],
+            text=data['Target'],
+            showlegend=False,
+            name='',
+            marker_color='salmon',
+            hovertemplate=hover_template),
+        row=1,
+        col=1)
+    fig.add_trace(
+        go.Scatter(
+            x=data.loc[indices >= zero_score_index]['Rank in Ordered Dataset'],
+            y=data.loc[indices >= zero_score_index]['Enrichment Score'],
+            text=data['Target'],
+            showlegend=False,
+            name='',
+            marker_color='blueviolet',
+            hovertemplate=hover_template),
+        row=1,
+        col=1)
+
+    hover_template = ''.join((
+        'Target: %{text}<br>Rank in Ordered Dataset: %{x}'))
+    marker_color = ['salmon' if x else 'blueviolet' for x in hit_indices <= zero_score_index]
+    fig.add_trace(
+        go.Scatter(
+            x=hit_indices,
+            y=np.zeros_like(hit_indices),
+            text=data['Target'].iloc[hit_indices],
+            mode='markers',
+            showlegend=False,
+            name='',
+            marker_color=marker_color,
+            marker_symbol='line-ns-open',
+            marker_size=30,
+            hovertemplate=hover_template),
+        row=2,
+        col=1)
+
+    mid = (zero_score_index - 0) / len(data)
+    fig.add_trace(
+        go.Scatter(
+            x=data['Rank in Ordered Dataset'], 
+            y=np.zeros_like(rank_metric.values), 
+            text=data['Target'],
+            mode='markers', 
+            showlegend=False,
+            name='',
+            hovertemplate='Target: %{text}<br>Rank in Ordered Dataset: %{x}',
+            marker_color=data['Rank in Ordered Dataset'],
+            marker_symbol='line-ns-open',
+            marker_size=30,
+            marker_colorscale=[
+                (0.0, "salmon"),
+                (mid, "white"),
+                (1.0, "blueviolet")]),
+        row=3,
+        col=1)
+
+    hover_template = ''.join((
+        'Target: %{text}<br>Rank in Ordered Dataset: %{x}'
+        '<br>Rank List Metric: %{y:.2f}'))
+    fig.add_trace(
+        go.Scatter(
+            x=data.loc[indices < zero_score_index]['Rank in Ordered Dataset'],
+            y=data.loc[indices < zero_score_index]['Rank List Metric'],
+            text=data['Target'],
+            marker_color='salmon',
+            fill='tozeroy',
+            showlegend=False,
+            name='',
+            hovertemplate=hover_template),
+        row=4,
+        col=1)
+    fig.add_trace(
+        go.Scatter(
+            x=data.loc[indices >= zero_score_index]['Rank in Ordered Dataset'],
+            y=data.loc[indices >= zero_score_index]['Rank List Metric'],
+            text=data['Target'],
+            marker_color='blueviolet',
+            fill='tozeroy',
+            showlegend=False,
+            name='',
+            hovertemplate=hover_template),
+        row=4,
+        col=1)
+
+    fig.add_trace(
+        go.Scatter(
+            x=[zero_score_index],
+            y=[0.0],
+            mode="markers+text",
+            marker_color='red',
+            text=[z_score_label],
+            textposition="top right",
+            showlegend=False,
+            hoverinfo='skip'),
+        row=4,
+        col=1)
+
+    fig.update_layout(
+        title=f'{term}<br>{nes_label}, {pval_label}, {fdr_label}',
+        hovermode="x unified", 
+        yaxis1_title='Enrichment Score',
+        xaxis1_showticklabels=False, yaxis2_showticklabels=False, xaxis2_showticklabels=False, 
+        xaxis2_range=[0, len(indices)], xaxis3_showticklabels=False, yaxis3_showticklabels=False, 
+        xaxis3_range=[0, len(indices)],
+        xaxis4_title='Rank in Ordered Dataset', 
+        yaxis4_title='Rank Metric', 
+        xaxis4_range=[0, len(indices)],
+        width=700, height=700)
+
+    fig.show()
+    
     if filename:
       if filename.endswith('html'):
         fig.write_html(filename)
