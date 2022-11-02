@@ -1,4 +1,5 @@
 from cavachon.tools.ClusterAnalysis import ClusterAnalysis
+from gseapy.gsea import Prerank
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from typing import Optional, Mapping, Union, Sequence
@@ -534,6 +535,89 @@ class InteractiveVisualization:
         hover_data=['Target'],
         title=title,
         **kwargs)
+    
+    fig.show()
+
+    if filename:
+      if filename.endswith('html'):
+        fig.write_html(filename)
+      else:
+        fig.write_image(filename)
+    
+    return fig
+  
+  @staticmethod
+  def prerank_ringplot(
+      prerank_result: Prerank,
+      metric: str = 'FDR q-val',
+      threshold: float = 0.05,
+      filename: Optional[str] = None,
+      title: str = 'Ring Plot for Prerank Enrichment Analysis') -> plotly.graph_objs._figure.Figure:
+    """Create interactive visualization for volcano plot for 
+    differential analysis.
+
+    Parameters
+    ----------
+    prerank_result: Prerank
+        outputs of gseapy.prerank.
+
+    metric: str, optional
+        metric used to color the dot. Defaults to 'FDR q-val'.
+    
+    threshold : float, optional
+        threshold of `metrics` used to filter the terms. Defaults to
+        0.05.
+    
+    filename: Optional[str], optional
+        filename to save the figure. None if disable saving. Defaults 
+        to None.
+
+    title: str, optional
+        title for the figure. Defaults to 'Ring Plot for Prerank 
+        Enrichment Analysis'
+
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+
+    """
+    data = prerank_result.res2d
+    data = data.loc[data[metric] <= threshold]
+    data = data.iloc[data.index[::-1]]
+    color = np.log(1 / (data[metric].values.astype(np.float32) + 1e-7))
+    size = np.array([float(x[:-2]) for x in data['Gene %']])
+    
+    data['Hits (%)'] = size
+    data[f'log(1/{metric})'] = color
+
+    fig = InteractiveVisualization.scatter(
+      data, 
+      x='NES', 
+      y='Term', 
+      size='Hits (%)', 
+      # hard-coded to make sure Hits (%) = 100 is the max size
+      size_max=21 * max(size) / 100,
+      color=f'log(1/{metric})',
+      color_continuous_scale='rdpu',
+      labels={'x': 'Normalized Enrichment Score', 'y': 'Term'},
+      width=min(35 * len(data), 1024), height=35 * len(data),
+      title=title)
+    
+    # add ring
+    fig.add_trace(
+        go.Scatter(
+            x=data["NES"],
+            y=data["Term"],
+            marker_color='rgba(0, 0, 0, 0)',
+            hoverinfo='skip',
+            marker_size=30,
+            mode='markers',
+            showlegend=False))
+    fig.update_traces(
+        marker=dict(
+            opacity=0.7, 
+            line=dict(width=1, color='DarkSlateGrey'))) 
     
     fig.show()
 
