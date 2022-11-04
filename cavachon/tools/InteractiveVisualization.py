@@ -1,4 +1,6 @@
+from cavachon.tools.AttributionAnalysis import AttributionAnalysis
 from cavachon.tools.ClusterAnalysis import ClusterAnalysis
+from cavachon.tools.DifferentialAnalysis import DifferentialAnalysis
 from gseapy.gsea import Prerank
 from plotly.subplots import make_subplots
 from sklearn.decomposition import PCA
@@ -433,8 +435,8 @@ class InteractiveVisualization:
         batch_size=batch_size)
 
     data = pd.DataFrame({
-        'X': np.ones(workflow.mdata[modality].n_obs),
-        'Cluster': workflow.mdata[modality].obs[use_cluster], 
+        'X': np.ones(mdata[modality].n_obs),
+        'Cluster': mdata[modality].obs[use_cluster], 
         'Attribution Score': np.mean(np.abs(attribution_score), axis=-1)})
 
     fig = InteractiveVisualization.bar(
@@ -516,7 +518,7 @@ class InteractiveVisualization:
 
     """
     obs = mdata[modality].obs
-    analysis = DifferentialAnalysis(mdata=workflow.mdata, model=workflow.model)
+    analysis = DifferentialAnalysis(mdata=mdata, model=model)
     degs = analysis.between_two_groups(
         group_a_index=group_a_index,
         group_b_index=group_b_index, 
@@ -585,7 +587,7 @@ class InteractiveVisualization:
     """
     data = prerank_result.res2d
     data = data.loc[data[metric] <= threshold]
-    data = data.iloc[data.index[::-1]]
+    data = data.loc[data.index[::-1]]
     color = np.log(1 / (data[metric].values.astype(np.float32) + 1e-7))
     size = np.array([float(x[:-2]) for x in data['Gene %']])
     
@@ -662,7 +664,7 @@ class InteractiveVisualization:
 
     indices = np.arange(len(rank_metric))
     RES = np.asarray(term_result.get('RES'))
-    zero_score_index = np.abs(rankings).argmin()
+    zero_score_index = np.abs(rank_metric.values).argmin()
     hit_indices = np.array(term_result.get('hits'))
 
     z_score_label = f"Zero score at {zero_score_index}"
