@@ -1,4 +1,8 @@
+from cavachon.tools.AttributionAnalysis import AttributionAnalysis
 from cavachon.tools.ClusterAnalysis import ClusterAnalysis
+from cavachon.tools.DifferentialAnalysis import DifferentialAnalysis
+from gseapy.gsea import Prerank
+from plotly.subplots import make_subplots
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from typing import Optional, Mapping, Union, Sequence
@@ -87,11 +91,11 @@ class InteractiveVisualization:
           marker_opacity=0.7,
           marker_line=dict(width=1, color='DarkSlateGrey'),
           error_y=dict(type='data', array=sem)))
-    
+
     return fig
 
   @staticmethod
-  def scatter(*args, **kwargs):
+  def scatter(*args, **kwargs) -> plotly.graph_objs._figure.Figure:
     """Create interactive scatter plot.
    
     Parameters
@@ -107,6 +111,7 @@ class InteractiveVisualization:
     -------
     plotly.graph_objs._figure.Figure
         interactive figure objects.
+
     """
     fig = px.scatter(*args, **kwargs)
     fig.update_traces(
@@ -126,7 +131,7 @@ class InteractiveVisualization:
       color_discrete_sequence: Optional[Sequence[str]] = None,
       force: bool = False,
       *args,
-      **kwargs):
+      **kwargs) -> plotly.graph_objs._figure.Figure:
     """Create interactive visualization for the latent space.
 
     Parameters
@@ -172,6 +177,12 @@ class InteractiveVisualization:
 
     **kwargs: Optional[Mapping[str, Any]], optional
         additional arguments for px.scatter.
+    
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+
     """
 
     adata_name = adata.uns.get('cavachon', '').get('name', '')
@@ -257,6 +268,8 @@ class InteractiveVisualization:
         fig.write_html(filename)
       else:
         fig.write_image(filename)
+    
+    return fig
 
   @staticmethod
   def neighbors_with_same_annotations(
@@ -270,7 +283,7 @@ class InteractiveVisualization:
       group_by_cluster: bool = False,
       color_discrete_map: Mapping[str, str] = dict(),
       title: str = 'Cluster Nearest Neighbor Analysis',
-      **kwargs):
+      **kwargs) -> plotly.graph_objs._figure.Figure:
     """Create interactive visualization for nearest neighbor analysis.
 
     Parameters
@@ -312,6 +325,12 @@ class InteractiveVisualization:
     
     **kwargs: Optional[Mapping[str, Any]], optional
         additional arguments for fig.update_layout.
+    
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+
     """
     analysis = ClusterAnalysis(mdata, model)
     analysis_result = analysis.compute_neighbors_with_same_annotations(
@@ -342,3 +361,453 @@ class InteractiveVisualization:
         fig.write_html(filename)
       else:
         fig.write_image(filename)
+    
+    return fig
+  
+  @staticmethod
+  def attribution_score(
+      mdata: mu.MuData,
+      model: tf.keras.Model,
+      component: str,
+      modality: str,
+      target_component: str,
+      use_cluster: str,
+      steps: int = 10,
+      batch_size: int = 128,
+      color_discrete_map: Mapping[str, str] = dict(),
+      filename: Optional[str] = None,
+      title: str = 'Attribution Score Analysis',
+      **kwargs) -> plotly.graph_objs._figure.Figure:
+    """Create interactive visualization for attribution score.
+
+    Parameters
+    ----------
+    mdata: mu.MuData
+        the MuData used for the generative process.
+    
+    model: tf.keras.Model
+        the trained generative model used for the generative process.
+
+    component: str
+        the outputs of which component to used.
+
+    modality: str
+        which modality of the outputs of the component to used.
+
+    target_component: str
+        the latent representation of which component to used.
+
+    use_cluster: str
+        the column name of the clusters in the obs of modality.
+
+    steps: int, optional
+        steps in integrated gradients. Defaults to 10.
+
+    batch_size: int, optional
+        batch size used for the forward pass. Defaults to 128.
+
+    color_discrete_map: Mapping[str, str], optional
+        the color palette for `group_by_cluster`. Defaults to dict()
+
+    filename: Optional[str], optional
+        filename to save the figure. None if disable saving. Defaults 
+        to None.
+
+    title: str, optional
+        title for the figure. Defaults to 'Attribution Score Analysis'
+    
+    **kwargs: Optional[Mapping[str, Any]], optional
+        additional arguments for fig.update_layout.
+    
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+
+    """
+
+    analysis = AttributionAnalysis(mdata, model)
+    attribution_score = analysis.compute_integrated_gradient(
+        component=component,
+        modality=modality,
+        target_component=target_component,
+        steps=steps,
+        batch_size=batch_size)
+
+    data = pd.DataFrame({
+        'X': np.ones(mdata[modality].n_obs),
+        'Cluster': mdata[modality].obs[use_cluster], 
+        'Attribution Score': np.mean(np.abs(attribution_score), axis=-1)})
+
+    fig = InteractiveVisualization.bar(
+        data, 
+        x='X', 
+        y='Attribution Score',
+        group='Cluster',
+        title=title,
+        color_discrete_map=color_discrete_map,
+        xaxis_title='Cluster',
+        yaxis_title='Attribution Score',
+        **kwargs)
+    fig.update_layout(xaxis_showticklabels=False)
+    fig.show()
+
+    if filename:
+      if filename.endswith('html'):
+        fig.write_html(filename)
+      else:
+        fig.write_image(filename)
+    
+    return fig
+  
+  @staticmethod
+  def differential_volcano_plot(
+      mdata: mu.MuData,
+      model: tf.keras.Model,
+      group_a_index: Union[pd.Index, Sequence[str]],
+      group_b_index: Union[pd.Index, Sequence[str]],
+      component: str,
+      modality: str,
+      significant_threshold: float = 3.2,
+      filename: Optional[str] = None,
+      title: str = 'Volcano Plot for Differential Analysis',
+      **kwargs) -> plotly.graph_objs._figure.Figure:
+    """Create interactive visualization for volcano plot for 
+    differential analysis
+
+    Parameters
+    ----------
+    mdata: mu.MuData
+        the MuData used for the generative process.
+    
+    model: tf.keras.Model
+        the trained generative model used for the generative process.
+
+    group_a_index : Union[pd.Index, Sequence[str]]
+        index of group one. Needs to meet the index in the obs of the
+        modality.
+    
+    group_b_index : Union[pd.Index, Sequence[str]]
+        index of group two. Needs to meet the index in the obs of the
+        modality.
+    
+    component : str
+        generative result of `modality` from which component to used.
+    
+    modality : str
+        which modality to used from the generative result of 
+        `component`.
+
+    significant_threshold : float, optional
+        threshold for significance of Bayesian factor. Defaults to 3.2.
+    
+    filename: Optional[str], optional
+        filename to save the figure. None if disable saving. Defaults 
+        to None.
+
+    title: str, optional
+        title for the figure. Defaults to 'Attribution Score Analysis'
+    
+    **kwargs: Optional[Mapping[str, Any]], optional
+        additional arguments for fig.update_layout.
+    
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+
+    """
+    obs = mdata[modality].obs
+    analysis = DifferentialAnalysis(mdata=mdata, model=model)
+    degs = analysis.between_two_groups(
+        group_a_index=group_a_index,
+        group_b_index=group_b_index, 
+        component=component,
+        modality=modality)
+        
+    degs['LogFC(A/B)'] = np.log(degs['Mean(A)']/degs['Mean(B)'])
+    degs['K(A!=B|Z)'] = degs[['K(A>B|Z)', 'K(B>A|Z)']].abs().max(axis=1)
+    degs['Significant'] = degs['K(A!=B|Z)'].apply(lambda x: 'Significant' if x > 3.2 else 'Non-significant')
+    degs['Target'] = degs.index
+    fig = InteractiveVisualization.scatter(
+        degs,
+        x='LogFC(A/B)',
+        y='K(A!=B|Z)',
+        color='Significant', 
+        labels={'x': 'LogFC(A/B)', 'y': 'K(A!=B|Z)'},
+        hover_data=['Target'],
+        title=title,
+        **kwargs)
+    
+    fig.show()
+
+    if filename:
+      if filename.endswith('html'):
+        fig.write_html(filename)
+      else:
+        fig.write_image(filename)
+    
+    return fig
+  
+  @staticmethod
+  def prerank_ringplot(
+      prerank_result: Prerank,
+      metric: str = 'FDR q-val',
+      threshold: float = 0.05,
+      filename: Optional[str] = None,
+      title: str = 'Ring Plot for Prerank Enrichment Analysis') -> plotly.graph_objs._figure.Figure:
+    """Create interactive visualization for volcano plot for 
+    differential analysis.
+
+    Parameters
+    ----------
+    prerank_result: Prerank
+        outputs of gseapy.prerank.
+
+    metric: str, optional
+        metric used to color the dot. Defaults to 'FDR q-val'.
+    
+    threshold : float, optional
+        threshold of `metrics` used to filter the terms. Defaults to
+        0.05.
+    
+    filename: Optional[str], optional
+        filename to save the figure. None if disable saving. Defaults 
+        to None.
+
+    title: str, optional
+        title for the figure. Defaults to 'Ring Plot for Prerank 
+        Enrichment Analysis'
+
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+
+    """
+    data = prerank_result.res2d
+    data = data.loc[data[metric] <= threshold]
+    data = data.loc[data.index[::-1]]
+    color = np.log(1 / (data[metric].values.astype(np.float32) + 1e-7))
+    size = np.array([float(x[:-2]) for x in data['Gene %']])
+    
+    data['Hits (%)'] = size
+    data[f'log(1/{metric})'] = color
+
+    fig = InteractiveVisualization.scatter(
+      data, 
+      x='NES', 
+      y='Term', 
+      size='Hits (%)', 
+      # hard-coded to make sure Hits (%) = 100 is the max size
+      size_max=21 * max(size) / 100,
+      color=f'log(1/{metric})',
+      color_continuous_scale='rdpu',
+      labels={'x': 'Normalized Enrichment Score', 'y': 'Term'},
+      width=min(35 * len(data), 1024), height=35 * len(data),
+      title=title)
+    
+    # add ring
+    fig.add_trace(
+        go.Scatter(
+            x=data["NES"],
+            y=data["Term"],
+            marker_color='rgba(0, 0, 0, 0)',
+            hoverinfo='skip',
+            marker_size=30,
+            mode='markers',
+            showlegend=False))
+    fig.update_traces(
+        marker=dict(
+            opacity=0.7, 
+            line=dict(width=1, color='DarkSlateGrey'))) 
+    
+    fig.show()
+
+    if filename:
+      if filename.endswith('html'):
+        fig.write_html(filename)
+      else:
+        fig.write_image(filename)
+    
+    return fig
+
+  @staticmethod
+  def prerank_enrichment_score(
+      prerank_result: Prerank,
+      term: str,
+      filename: Optional[str] = None) -> plotly.graph_objs._figure.Figure:
+    """Create interactive visualization for enrichment score for the
+    provided term.
+
+    Parameters
+    ----------
+    prerank_result: Prerank
+        outputs of gseapy.prerank.
+
+    term: str
+        the term to used.
+
+    filename: Optional[str], optional
+        filename to save the figure. None if disable saving. Defaults 
+        to None.
+
+    Returns
+    -------
+    plotly.graph_objs._figure.Figure
+        interactive figure objects.
+
+
+    """
+    term_result = prerank_result.results[term]
+    rank_metric = prerank_result.ranking
+
+    indices = np.arange(len(rank_metric))
+    RES = np.asarray(term_result.get('RES'))
+    zero_score_index = np.abs(rank_metric.values).argmin()
+    hit_indices = np.array(term_result.get('hits'))
+
+    z_score_label = f"Zero score at {zero_score_index}"
+    nes_label = f"NES: {float(term_result.get('nes')):.3f}"
+    pval_label = f"Pval: {float(term_result.get('pval')):.3e}"
+    fdr_label = f"FDR: {float(term_result.get('fdr')):.3e}"
+
+    data = pd.DataFrame({
+        'Rank in Ordered Dataset': indices,
+        'Rank List Metric': rank_metric,
+        'Enrichment Score': RES,
+        'color': rank_metric > 0,
+        'Target': rank_metric.index})
+
+    fig = make_subplots(
+        rows=4,
+        cols=1,
+        row_heights=[0.45, 0.05, 0.05, 0.45],
+        vertical_spacing=0.00)
+
+    hover_template = ''.join((
+        'Target: %{text}<br>Rank in Ordered Dataset: %{x}'
+        '<br>Enrichment Score: %{y:.2f}'))
+    fig.add_trace(
+        go.Scatter(
+            x=data.loc[indices < zero_score_index]['Rank in Ordered Dataset'],
+            y=data.loc[indices < zero_score_index]['Enrichment Score'],
+            text=data['Target'],
+            showlegend=False,
+            name='',
+            marker_color='salmon',
+            hovertemplate=hover_template),
+        row=1,
+        col=1)
+    fig.add_trace(
+        go.Scatter(
+            x=data.loc[indices >= zero_score_index]['Rank in Ordered Dataset'],
+            y=data.loc[indices >= zero_score_index]['Enrichment Score'],
+            text=data['Target'],
+            showlegend=False,
+            name='',
+            marker_color='blueviolet',
+            hovertemplate=hover_template),
+        row=1,
+        col=1)
+
+    hover_template = ''.join((
+        'Target: %{text}<br>Rank in Ordered Dataset: %{x}'))
+    marker_color = ['salmon' if x else 'blueviolet' for x in hit_indices <= zero_score_index]
+    fig.add_trace(
+        go.Scatter(
+            x=hit_indices,
+            y=np.zeros_like(hit_indices),
+            text=data['Target'].iloc[hit_indices],
+            mode='markers',
+            showlegend=False,
+            name='',
+            marker_color=marker_color,
+            marker_symbol='line-ns-open',
+            marker_size=30,
+            hovertemplate=hover_template),
+        row=2,
+        col=1)
+
+    mid = (zero_score_index - 0) / len(data)
+    fig.add_trace(
+        go.Scatter(
+            x=data['Rank in Ordered Dataset'], 
+            y=np.zeros_like(rank_metric.values), 
+            text=data['Target'],
+            mode='markers', 
+            showlegend=False,
+            name='',
+            hovertemplate='Target: %{text}<br>Rank in Ordered Dataset: %{x}',
+            marker_color=data['Rank in Ordered Dataset'],
+            marker_symbol='line-ns-open',
+            marker_size=30,
+            marker_colorscale=[
+                (0.0, "salmon"),
+                (mid, "white"),
+                (1.0, "blueviolet")]),
+        row=3,
+        col=1)
+
+    hover_template = ''.join((
+        'Target: %{text}<br>Rank in Ordered Dataset: %{x}'
+        '<br>Rank List Metric: %{y:.2f}'))
+    fig.add_trace(
+        go.Scatter(
+            x=data.loc[indices < zero_score_index]['Rank in Ordered Dataset'],
+            y=data.loc[indices < zero_score_index]['Rank List Metric'],
+            text=data['Target'],
+            marker_color='salmon',
+            fill='tozeroy',
+            showlegend=False,
+            name='',
+            hovertemplate=hover_template),
+        row=4,
+        col=1)
+    fig.add_trace(
+        go.Scatter(
+            x=data.loc[indices >= zero_score_index]['Rank in Ordered Dataset'],
+            y=data.loc[indices >= zero_score_index]['Rank List Metric'],
+            text=data['Target'],
+            marker_color='blueviolet',
+            fill='tozeroy',
+            showlegend=False,
+            name='',
+            hovertemplate=hover_template),
+        row=4,
+        col=1)
+
+    fig.add_trace(
+        go.Scatter(
+            x=[zero_score_index],
+            y=[0.0],
+            mode="markers+text",
+            marker_color='red',
+            text=[z_score_label],
+            textposition="top right",
+            showlegend=False,
+            hoverinfo='skip'),
+        row=4,
+        col=1)
+
+    fig.update_layout(
+        title=f'{term}<br>{nes_label}, {pval_label}, {fdr_label}',
+        hovermode="x unified", 
+        yaxis1_title='Enrichment Score',
+        xaxis1_showticklabels=False, yaxis2_showticklabels=False, xaxis2_showticklabels=False, 
+        xaxis2_range=[0, len(indices)], xaxis3_showticklabels=False, yaxis3_showticklabels=False, 
+        xaxis3_range=[0, len(indices)],
+        xaxis4_title='Rank in Ordered Dataset', 
+        yaxis4_title='Rank Metric', 
+        xaxis4_range=[0, len(indices)],
+        width=700, height=700)
+
+    fig.show()
+    
+    if filename:
+      if filename.endswith('html'):
+        fig.write_html(filename)
+      else:
+        fig.write_image(filename)
+    
+    return fig

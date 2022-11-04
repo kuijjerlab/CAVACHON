@@ -143,7 +143,6 @@ class AttributionAnalysis:
         component = component,
         modality = modality,
         exclude_components = [target_component],
-        training = False,
         batch_size = batch_size)
     
     dataloader = DataLoader(self.mdata, batch_size=batch_size)
