@@ -57,6 +57,8 @@ class TensorUtils:
     
     """
     for i, g in enumerate(gradients):
+      if gradients[i] is None:
+        continue
       gradients[i] = tf.where(tf.math.is_nan(g), tf.zeros_like(g), g)
       gradients[i] = tf.where(
           tf.math.is_inf(gradients[i]),
@@ -77,9 +79,9 @@ class TensorUtils:
   def create_backbone_layers(
       n_layers: int = 3,
       base_n_neurons: int = 128,
-      max_n_neurons: int = 1024,
+      max_n_neurons: int = 2048,
       rate: int = 2,
-      activation: str = 'elu',
+      activation: str = 'swish',
       reverse: bool = False,
       name: Optional[str] = 'backbone_network') -> tf.keras.Model:
     """Create tf.keras.Sequential models with tf.keras.layers.Dense and
@@ -130,8 +132,9 @@ class TensorUtils:
 
     layers = []
     for no_layer in range(0, n_layers):
-      n_neurons = max(base_n_neurons * rate ** no_layer, max_n_neurons)
+      n_neurons = min(base_n_neurons * rate ** no_layer, max_n_neurons)
       layers.append(tf.keras.layers.Dense(n_neurons, activation=activation))
+      layers.append(tf.keras.layers.LayerNormalization())
     
     if reverse:
       layers.reverse()

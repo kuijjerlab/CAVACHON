@@ -3,6 +3,8 @@ from collections import defaultdict
 from copy import deepcopy
 from typing import Any, List, Mapping, Optional, Tuple, Union
 
+import mlflow
+
 import itertools
 import tensorflow as tf
 
@@ -163,6 +165,10 @@ class SequentialTrainingScheduler:
     learning_rate = self.learning_rate
     history = []
 
+    experiment_name = self.model.name
+    mlflow.set_experiment(experiment_name)
+    experiment = mlflow.get_experiment_by_name(experiment_name)
+
     for component_order, train_components in enumerate(self.training_order):
       # progressive training
       if component_order != 0:
@@ -170,13 +176,27 @@ class SequentialTrainingScheduler:
             train_components = train_components, 
             n_batches = n_batches,
             initial_iteration = 0.0)
-        optimizer = tf.keras.optimizers.get(self.optimizer).__class__(learning_rate=learning_rate)
-        self.model.compile(optimizer=optimizer, loss_weights=loss_weights)
-        kwargs_progressive = deepcopy(kwargs)
-        kwargs_progressive.pop('epochs', None)
-        history.append(self.model.fit(x, epochs=max_n_progressive_epochs, **kwargs_progressive))
+        if max_n_progressive_epochs != 0:
+          run_name = f'Training/{component_order}/Progressive/{"/".join(train_components)}'
+          mlflow.start_run(experiment_id=experiment.experiment_id, run_name=run_name)
+          mlflow.tensorflow.autolog(
+              every_n_iter=1,
+              log_models=False,
+              registered_model_name=f'Model/{run_name}')
+          optimizer = tf.keras.optimizers.get(self.optimizer).__class__(learning_rate=learning_rate)
+          self.model.compile(optimizer=optimizer, loss_weights=loss_weights)
+          kwargs_progressive = deepcopy(kwargs)
+          kwargs_progressive.pop('epochs', None)
+          history.append(self.model.fit(x, epochs=max_n_progressive_epochs, **kwargs_progressive))
+          mlflow.end_run()
 
       # non-progressive training
+      run_name = f'Training/{component_order}/{"/".join(train_components)}'
+      mlflow.start_run(experiment_id=experiment.experiment_id, run_name=run_name)
+      mlflow.tensorflow.autolog(
+          every_n_iter=5,
+          log_models=False,
+          registered_model_name=f'Model/{run_name}')
       loss_weights, max_n_progressive_epochs = self.setup_component_and_loss_weights(
           train_components = train_components, 
           n_batches = n_batches,
@@ -188,10 +208,11 @@ class SequentialTrainingScheduler:
         callbacks.append(tf.keras.callbacks.EarlyStopping(
             monitor='loss',
             min_delta = 5,
-            patience = max(10, int(kwargs.get('epochs', 1) / 10)),
+            patience = max(10, int(kwargs.get('epochs', 1) / 20)),
             restore_best_weights=True,
             verbose=1))
       history.append(self.model.fit(x, callbacks=callbacks, **kwargs))
+      mlflow.end_run()
 
     return history
 
@@ -226,7 +247,7 @@ class SequentialTrainingScheduler:
         element is the maximum number of progressive epochs.
     """
     loss_weights = dict()
-    max_n_progressive_epochs = 1
+    max_n_progressive_epochs = 0
     for component_config in self.component_configs:
       component_name = component_config.get('name')
       component = self.model.components.get(component_name)
